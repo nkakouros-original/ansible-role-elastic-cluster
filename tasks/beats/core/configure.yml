@@ -1,0 +1,68 @@
+---
+
+- name: "{{ beats_flavor }}: Combine configs"
+  set_fact:
+    beats_combined_config: "{{ beats_combined_config | combine(beats_config, recursive=True) }}"
+    # The user config always has the last say.
+
+- name: "{{ beats_flavor }}: configuration tasks for Linux"
+  block:
+    - name: "{{ beats_flavor }}: Upload configuration on Linux"
+      copy:
+        content: >-
+          {{
+            beats_combined_config
+            | to_nice_yaml(indent=2, explicit_start=true)
+          }}
+        dest: "{{ beats_path_config }}/{{ beats_flavor }}.yml"
+        owner: root
+        group: root
+        mode: 0o644
+        # validate: beats test config --path.config %s
+      notify: beats-restart-service
+
+    - name: "{{ beats_flavor }}: Check that the output can be reached successfully on Linux"
+      command: "docker exec {{ beats_flavor }} {{ beats_flavor }} test output"
+      changed_when: false
+      when: beats_check_output | bool
+
+    - name: "{{ beats_flavor }}: Generate uuid on Linux"
+      copy:
+        content: "{{ beat_uuid | to_json }}"
+        dest: "{{ beats_path_data }}/meta.json"
+        mode: 0o644
+      vars:
+        beat_uuid:
+          uuid: "{{ beats_uuid }}"
+      when: beats_uuid is not none
+      changed_when: false
+  when: ansible_os_family != 'Windows'
+
+- name: "{{ beats_flavor }}: configuration tasks for Windows"
+  block:
+    - name: "{{ beats_flavor }}: Upload configuration on Windows"
+      win_copy:
+        content: >-
+          {{
+            beats_combined_config
+            | to_nice_yaml(indent=2, explicit_start=true)
+          }}
+        dest: "{{ beats_path_config }}/{{ beats_flavor }}.yml"
+        # validate: beats test config --path.config %s
+      notify: beats-restart-service
+
+    - name: "{{ beats_flavor }}: Check that the output can be reached successfully on Windows"
+      win_command: "{{ beats_flavor }} test output"
+      changed_when: false
+      when: beats_check_output | bool
+
+    - name: "{{ beats_flavor }}: Generate uuid on Windows"
+      win_copy:
+        content: "{{ beat_uuid | to_json }}"
+        dest: "{{ beats_path_data }}/meta.json"
+      vars:
+        beat_uuid:
+          uuid: "{{ beats_uuid }}"
+      notify: beats-restart-service
+      when: beats_uuid is not none
+  when: ansible_os_family == 'Windows'

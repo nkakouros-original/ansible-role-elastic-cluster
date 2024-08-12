@@ -1,0 +1,5 @@
+---
+
+- name: Initialize variable
+  set_fact:
+    kibana_combined_config: {}

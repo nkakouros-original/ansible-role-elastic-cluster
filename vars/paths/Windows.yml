@@ -1,0 +1,11 @@
+---
+
+_beats_path_home: "C:/ProgramData/chocolatey/lib/{{ beats_flavor }}/tools"
+_beats_path_config: "C:/ProgramData/chocolatey/lib/{{ beats_flavor }}/tools"
+# These paths are the defaults for auditbeat on windows, but the chocolatey
+# package installs a service that defines the uncommented paths below.
+# _beats_path_data: "C:/ProgramData/chocolatey/lib/{{ beats_flavor }}/tools/data"
+# _beats_path_logs: "C:/ProgramData/chocolatey/lib/{{ beats_flavor }}/tools/logs"
+_beats_path_data: "C:/ProgramData/{{ beats_flavor }}"
+_beats_path_logs: "C:/ProgramData/{{ beats_flavor }}/logs"
+_beats_certificates_dir: "C:/ProgramData/chocolatey/lib/{{ beats_flavor }}/tools/certs"

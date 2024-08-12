@@ -1,0 +1,22 @@
+---
+
+- name: "{{ beats_flavor }}: Set beats_certificates_dir"
+  set_fact:
+    "{{ _beats__variable }}": ~
+  when: beats_unset_facts
+  loop_control:
+    loop_var: _beats__variable
+  loop:
+    - beats_certificates_dir
+    - beats_path_home
+    - beats_path_config
+    - beats_path_data
+    - beats_path_logs
+    - beats_path_data_backslashes
+    - beats_path_home_backslashes
+    - beats_path_config_backslashes
+    - beats_path_logs_backslashes
+    - beats_combined_config
+    - beats_linux_exec
+    - beats_win_exec
+    - beats_combined_config

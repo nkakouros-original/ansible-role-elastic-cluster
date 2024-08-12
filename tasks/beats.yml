@@ -1,0 +1,51 @@
+---
+
+- include_tasks: beats/variables.yml
+
+- include_tasks: beats/core/version.yml
+  when: beats_already_installed
+
+- include_tasks: beats/configure.yml
+
+- include_tasks: beats/core/service.yml
+  when: ansible_os_family != 'Windows'
+
+- include_tasks: beats/install.yml
+
+- name: Run pending handlers now
+  meta: flush_handlers
+
+- include_tasks: beats/core/version.yml
+
+- include_tasks: beats/core/keystore.yml
+
+- include_tasks: beats/outputs/certificates.yml
+  when: beats_certificates != None
+
+- include_tasks: beats/outputs/kibana.yml
+  when:
+    - beats_config_kibana_endpoint | bool
+    - beats_flavor != 'heartbeat'  # https://github.com/elastic/beats/pull/10294
+  
+- include_tasks: beats/outputs/keystore.yml
+
+- include_tasks: beats/processors.yml
+
+- include_tasks: beats/core/configure.yml
+
+- include_tasks: beats/core/fields.yml
+
+- include_tasks: "beats/flavor-specific/{{ beats_flavor }}.yml"
+  when: (role_path + '/tasks/beats/flavor-specific/' + beats_flavor + '.yml') is file
+
+# This should run after the flavor specific tasks, because these tasks may add
+# monitors, etc that will cause new fields to be exported to the index template.
+- include_tasks: beats/outputs/index.yml
+  when: beats_extract_index_template | bool
+
+- include_tasks: beats/setup.yml
+
+- name: Run pending handlers now
+  meta: flush_handlers
+
+- include_tasks: beats/outro.yml

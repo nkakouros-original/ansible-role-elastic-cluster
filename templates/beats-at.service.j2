@@ -1,0 +1,16 @@
+[Unit]
+Description=Instantiated service for {{ beats_flavor }}
+Documentation=https://www.elastic.co/products/beats/{{ beats_flavor }}
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+
+EnvironmentFile=-{{ beats_path_config }}/%i.env.vars
+
+ExecStart=/usr/local/bin/{{ beats_flavor }}
+
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

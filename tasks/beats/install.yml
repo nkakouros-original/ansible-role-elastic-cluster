@@ -1,0 +1,14 @@
+---
+
+
+- name: copy beats script
+  template:
+    src: "{{ item }}"
+    dest: "/usr/local/bin/{{ item }}"
+    mode: 0755
+    owner: root
+    group: root
+  with_items:
+    - Dockerfile
+    - "{{ beats_flavor }}"
+  notify: beats-restart-service

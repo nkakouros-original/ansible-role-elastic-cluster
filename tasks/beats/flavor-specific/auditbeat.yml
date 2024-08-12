@@ -1,0 +1,53 @@
+---
+
+- name: "{{ beats_flavor }}: Disable journald-audit on Linux"
+  systemd:
+    name: systemd-journald-audit.socket
+    masked: true
+    enabled: false
+    state: stopped
+  when:
+    - beats_auditbeat_mask_journald_audit | bool
+    - ansible_os_family != 'Windows'
+
+- name: "{{ beats_flavor }}: Upload rule files on Linux"
+  block:
+    - name: "{{ beats_flavor }}: Create rules directory (Linux)"
+      file:
+        path: "{{ beats_auditbeat_rules_dir }}"
+        mode: 0o755
+        state: directory
+
+    - name: "{{ beats_flavor }}: Upload rule files (Linux)"
+      template:
+        src: "{{ _beats__rule.src }}"
+        dest: >-
+          {{ beats_auditbeat_rules_dir }}/{{
+            _beats__rule.src | basename | regex_replace('^(.*)[.]j2', '\\1')
+          }}
+        owner: root
+        group: root
+        # Setting no permissions for group and others to avoid leaking
+        # monitoring details.
+        mode: 0o600
+      loop: "{{ beats_auditbeat_rule_files }}"
+      loop_control:
+        loop_var: _beats__rule
+      when: _beats__rule.src is defined
+      notify: beats-restart-service
+
+    - name: "{{ beats_flavor }}: Upload inline rules (Linux)"
+      copy:
+        content: "{{ _beats__rule.content }}"
+        dest: "{{ beats_auditbeat_rules_dir }}/{{ _beats__rule.dest }}"
+        owner: root
+        group: root
+        # Setting no permissions for group and others to avoid leaking
+        # monitoring details.
+        mode: 0o600
+      loop: "{{ beats_auditbeat_rule_files }}"
+      loop_control:
+        loop_var: _beats__rule
+      when: _beats__rule.src is not defined
+      notify: beats-restart-service
+  when: ansible_os_family != 'Windows'

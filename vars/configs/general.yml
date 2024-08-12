@@ -1,0 +1,9 @@
+---
+
+_beats_general_default_config:
+  path:
+    # These are read from `vars/paths/`
+    home: "{{ _beats_path_home }}"
+    config: "{{ _beats_path_config }}"
+    data: "{{ _beats_path_data }}"
+    logs: "{{ _beats_path_logs }}"

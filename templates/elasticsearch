@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+docker pull docker.elastic.co/elasticsearch/elasticsearch:"{{ elastic_major_version }}.{{
+              elastic_minor_version | string }}{{
+              '' if elastic_minor_version == '*' else '.' + elastic_patch_version | string
+            }}"
+
+docker rm -f -v elasticsearch || :
+
+docker run --network host --rm --name=elasticsearch \
+         -p 9200:9200 -p 9300:9300 \
+          --ulimit nproc=65535 --ulimit memlock=-1:-1 --ulimit nofile=165535:165535  \
+         -e "ES_JAVA_OPTS=-Xms{{ elastic_jvm_min_heap_size }} -Xmx{{ elastic_jvm_max_heap_size }}" \
+         -e "discovery.type=single-node" \
+         -v {{ es_log_dir }}:{{ es_log_dir }} \
+         -v {{ elastic_certificates_dir }}:{{ elastic_certificates_dir }} \
+         -v {{ es_config_dir }}/elasticsearch.yml:{{ es_config_dir }}/elasticsearch.yml \
+         -v {{ es_config_dir }}/jvm.options:{{ es_config_dir }}/jvm.options \
+         -v {{ es_config_dir }}/log4j2.properties:{{ es_config_dir }}/log4j2.properties \
+         -v {{ es_data_dir }}:{{ es_data_dir }} \
+         docker.elastic.co/elasticsearch/elasticsearch:"{{ elastic_major_version }}.{{
+              elastic_minor_version | string }}{{
+              '' if elastic_minor_version == '*' else '.' + elastic_patch_version | string
+            }}"

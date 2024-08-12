@@ -1,0 +1,75 @@
+---
+
+- name: Create certificates folder
+  file:
+    path: "{{ elastic_certificates_dir }}"
+    state: directory
+    owner: "{{ elastic_user }}"
+    group: "{{ elastic_group }}"
+    mode: 0o750
+  changed_when: false
+
+- name: Check if Elasticsearch certificates exist
+  find:
+    paths: "{{ elastic_certificates_dir }}"
+    file_type: file
+  register: cert_files
+
+- name: Upload certificates
+  copy:
+    src: "{{ _elasticsearch__certificate.value }}"
+    dest: "{{ elastic_certificates_dir }}/{{ _elasticsearch__certificate.value | basename }}"
+    owner: "{{ elastic_group if _elasticsearch__certificate.key == 'key' else elastic_user }}"
+    group: "{{ elastic_group }}"
+    mode: "{{ '0o400' if _elasticsearch__certificate.key == 'key' else '0o640' }}"
+  loop: "{{ elastic_certificates| dict2items }}"
+  loop_control:
+    loop_var: _elasticsearch__certificate
+  when: cert_files.matched < 3
+  notify: elastic-restart-service
+
+- name: Add transport TSL configuration
+  set_fact:
+    elastic_combined_config: >-
+      {{
+        _elastic_certificates_config
+        | combine(elastic_combined_config, recursive=true)
+      }}
+  when: elastic_ssl_transport | bool
+  vars:
+    _elastic_certificates_config:
+      xpack:
+        security:
+          transport:
+            ssl:
+              enabled: true
+              verification_mode: "{{ elastic_ssl_verification_mode }}"
+              key: "{{ elastic_certificates_dir }}/{{
+                        elastic_certificates.key | basename }}"
+              certificate: "{{ elastic_certificates_dir }}/{{
+                                elastic_certificates.crt | basename }}"
+              certificate_authorities: "{{ elastic_certificates_dir }}/{{
+                                    elastic_certificates.ca | basename }}"
+
+- name: Add transport http configuration
+  set_fact:
+    elastic_combined_config: >-
+      {{
+        _elastic_certificates_config
+        | combine(elastic_combined_config, recursive=true)
+      }}
+  when: elastic_ssl_http | bool
+  vars:
+    _elastic_certificates_config:
+      xpack:
+        security:
+          http:
+            ssl:
+              enabled: true
+              verification_mode: "{{ elastic_ssl_verification_mode }}"
+              key: "{{ elastic_certificates_dir }}/{{
+                        elastic_certificates.key | basename }}"
+              certificate: "{{ elastic_certificates_dir }}/{{
+                                elastic_certificates.crt | basename }}"
+              certificate_authorities: "{{ elastic_certificates_dir }}/{{
+                                      elastic_certificates.ca | basename }}"

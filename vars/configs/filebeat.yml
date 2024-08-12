@@ -1,0 +1,17 @@
+---
+
+# Default config coming with filebeat 7.0
+_beats_flavor_specific_default_config:
+  filebeat:
+    inputs:
+      - type: log
+        enabled: false
+        paths:
+          - /var/log/*.log
+    config:
+      inputs:
+        path: "{{ beats_filebeat_inputs_dir }}/*.yml"
+      modules:
+        path: "{{ beats_filebeat_modules_dir }}/*.yml"
+        reload:
+          enabled: false

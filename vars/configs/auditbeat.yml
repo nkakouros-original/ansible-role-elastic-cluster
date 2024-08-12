@@ -1,0 +1,32 @@
+---
+
+# Default config coming with auditbeat 7.0
+_beats_flavor_specific_default_config:
+  auditbeat:
+    modules:
+      - module: auditd
+        audit_rule_files:
+          - "{{ beats_auditbeat_rules_dir }}/*.conf"
+      - module: file_integrity
+        paths:
+          - /bin
+          - /usr/bin
+          - /sbin
+          - /usr/sbin
+          - /etc
+      - module: system
+        datasets:
+          - host
+          - login
+          - package
+          - user
+        period: 1m
+        user:
+          detect_password_changes: true
+        login.wtmp_file_pattern: /var/log/wtmp*
+        login.btmp_file_pattern: /var/log/btmp*
+      - module: system
+        datasets:
+          - process
+          - socket
+        period: 1s

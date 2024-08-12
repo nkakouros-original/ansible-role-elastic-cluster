@@ -1,0 +1,10 @@
+---
+
+- include_tasks: elastic.yml
+  when: elastic_enabled | bool
+
+- include_tasks: kibana.yml
+  when: kibana_enabled | bool
+
+- include_tasks: beats.yml
+  when: beats_enabled | bool

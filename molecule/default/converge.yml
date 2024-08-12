@@ -1,0 +1,10 @@
+---
+
+- name: Converge
+  hosts: all
+  roles:
+    - abhi8080.elastic_cluster
+  vars_files:
+    - converge-vars/elastic.yml
+    - converge-vars/kibana.yml
+    - converge-vars/beats.yml

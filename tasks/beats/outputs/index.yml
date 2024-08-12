@@ -1,0 +1,22 @@
+---
+
+- name: "{{ beats_flavor }}: index tasks for Linux"
+  block:
+    - name: "{{ beats_flavor }}: Extract the beats index template on Linux"
+      shell: >-
+        docker exec {{ beats_flavor }} {{ beats_flavor }} \
+          --path.data /usr/share/{{ beats_flavor }}/data \
+          --path.config /usr/share/{{ beats_flavor }} \
+          --path.home {{ beats_path_home }} \
+          --path.logs /usr/share/{{ beats_flavor }}/logs export template > \
+          /tmp/{{ beats_flavor }}.{{ beats_full_version }}.template.json
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    - name: "{{ beats_flavor }}: Download the index template on Linux"
+      fetch:
+        src: "/tmp/{{ beats_flavor }}.{{ beats_full_version }}.template.json"
+        dest: "{{ beats_index_template_download_dir }}"
+        flat: true
+  when: ansible_os_family != 'Windows'

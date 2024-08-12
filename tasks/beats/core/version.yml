@@ -1,0 +1,13 @@
+---
+- name: "{{ beats_flavor }}: Get version"
+  command: "docker exec {{ beats_flavor }} {{ beats_flavor }} 
+      --path.data /usr/share/{{ beats_flavor }}/data 
+      --path.config /usr/share/{{ beats_flavor }} 
+      --path.home {{ beats_path_home }} 
+      --path.logs /usr/share/{{ beats_flavor }}/logs version"
+  register: _beats_version_output
+  changed_when: false
+
+- name: "{{ beats_flavor }}: Register beats version"
+  set_fact:
+    beats_full_version: "{{ _beats_version_output.stdout.split(' ')[2] | replace(',', '') }}"

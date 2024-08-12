@@ -1,0 +1,34 @@
+---
+
+- name: Read ingest pipelines
+  set_fact:
+    _elastic_pipelines: "{{ (_elastic_pipelines | d([]))
+                            + (
+                                (lookup('template', _elasticsearch__pipeline.src)
+                                 | from_yaml
+                                ).pipelines
+                                if 'src' in _elasticsearch__pipeline
+                                else [_elasticsearch__pipeline]
+                              )
+                          }}"
+  loop: "{{ elastic_ingest_pipelines }}"
+  loop_control:
+    loop_var: _elasticsearch__pipeline
+
+- name: Import ingest pipelines
+  uri:
+    url: "{{ elastic_node_address }}/_ingest/pipeline/{{
+             _elasticsearch__pipeline.description | replace('-', '_') }}"
+    method: PUT
+    body: "{{ _elasticsearch__pipeline }}"
+    body_format: json
+    headers:
+      Content-Type: application/json
+    force_basic_auth: true
+    url_username: "{{ _elastic_elastic_user['name'] }}"
+    url_password: "{{ _elastic_elastic_user['pass'] }}"
+    validate_certs: false
+    return_content: true
+  loop: "{{ _elastic_pipelines | d([]) }}"
+  loop_control:
+    loop_var: _elasticsearch__pipeline

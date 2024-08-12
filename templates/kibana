@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+docker pull docker.elastic.co/kibana/kibana:"{{ kibana_version }}"
+
+if [ "$(docker ps -a -q -f name=kibana)" ]; then
+    docker rm -f -v kibana
+fi
+
+docker run --network host --rm --name=kibana \
+         -p {{ kibana_config.server.port }}:{{ kibana_config.server.port }} \
+         -v {{ kibana_elastic_certificates_dir }}:{{ kibana_elastic_certificates_dir }} \
+         -v {{ kibana_config_dir }}/kibana.yml:{{ kibana_config_dir }}/kibana.yml \
+          docker.elastic.co/kibana/kibana:"{{ kibana_version }}"

@@ -1,0 +1,18 @@
+---
+
+- name: Deploy Kibana script
+  template:
+    src: "kibana"
+    dest: /usr/local/bin/kibana
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Deploy Kibana systemd service file
+  template:
+    src: "kibana.service"
+    dest: /etc/systemd/system/kibana.service
+    mode: '0644'
+    owner: root
+    group: root
+  notify: kibana restart service

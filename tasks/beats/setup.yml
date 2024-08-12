@@ -1,0 +1,49 @@
+---
+
+- name: "{{ beats_flavor }}: Setup Kibana dashboards manually"
+  block:
+    - name: "{{ beats_flavor }}: Setup kibana dashboards manually on Linux"
+      command: "docker exec {{ beats_flavor }} {{ beats_flavor }} 
+          --path.data /usr/share/{{ beats_flavor }}/data 
+          --path.config /usr/share/{{ beats_flavor }} 
+          --path.home {{ beats_path_home }} 
+          --path.logs /usr/share/{{ beats_flavor }}/logs setup --dashboards"
+      when: ansible_os_family != 'Windows'
+
+  when:
+    - beats_config_kibana_endpoint | bool
+    - beats_setup_kibana_dashboards | bool
+    - beats_flavor != 'heartbeat'
+
+- name: "{{ beats_flavor }}: Load index templates, ilm policy manually"
+  block:
+    - name: "{{ beats_flavor }}: Load index templates, ilm policy manually on Linux"
+      command: "docker exec {{ beats_flavor }} {{ beats_flavor }} 
+          --path.data /usr/share/{{ beats_flavor }}/data 
+          --path.config /usr/share/{{ beats_flavor }} 
+          --path.home {{ beats_path_home }} 
+          --path.logs /usr/share/{{ beats_flavor }}/logs setup --index-management"
+      when: ansible_os_family != 'Windows'
+
+  when: beats_setup_index_management | bool
+
+- name: "{{ beats_flavor }}: Setup ingest pipelines"
+  block:
+    - name: "{{ beats_flavor }}: Setup ingest pipelines on Linux"
+      command: "docker exec {{ beats_flavor }} {{ beats_flavor }} 
+          --path.data /usr/share/{{ beats_flavor }}/data 
+          --path.config /usr/share/{{ beats_flavor }} 
+          --path.home {{ beats_path_home }} 
+          --path.logs /usr/share/{{ beats_flavor }}/logs setup --pipelines"
+      when: ansible_os_family != 'Windows'
+
+  when:
+    - beats_setup_pipelines | bool
+    - beats_flavor in _beats_with_pipelines
+  vars:
+    _beats_with_pipelines:
+      - auditbeat
+      - filebeat
+      - metricbeat
+      - packetbeat
+      - journalbeat

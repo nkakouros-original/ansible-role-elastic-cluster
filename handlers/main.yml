@@ -1,0 +1,113 @@
+---
+
+########################################### Elasticsearch handlers #############################################
+
+- name: Restart elasticsearch service
+  systemd:
+    name: elasticsearch
+    state: restarted
+    enabled: true
+    daemon_reload: true
+  listen: elastic-restart-service
+
+- name: Wait for errors
+  block:
+    - name: Check that elastic search has started successfully
+      uri:
+        url: "{{ elastic_node_address }}"
+        return_content: true
+        validate_certs: false
+      register: result
+      until: result is success
+      retries: 20
+      delay: 20
+      failed_when:
+        - result is failed
+        - result.content is not search('missing authentication credentials')
+      listen: elastic-restart-service
+  rescue:
+    - name: Get elasticsearch log
+      command: tail -n 150 /var/log/elasticsearch/{{ elastic_config.cluster.name }}.log
+      register: _elasticsearch_log
+    - name: Print the log
+      debug:
+        var: _elasticsearch_log
+      failed_when: true
+
+- name: Reload secure settings
+  uri:
+    url: "{{ elastic_node_address }}/_nodes/reload_secure_settings"
+    method: POST
+    body:
+      secure_settings_password: "{{ elastic_keystore_password | d('') }}"
+    body_format: json
+    headers:
+      Content-Type: application/json
+    force_basic_auth: true
+    url_username: "{{ _elastic_elastic_user['name'] }}"
+    url_password: "{{ _elastic_elastic_user['pass'] }}"
+    validate_certs: false
+  listen: elastic-reload-settings
+  # **Some** settings stored in the keystore are reloadable. This means that ES
+  # does not have to be restarted. Instead, the above call will make the
+  # settings have immediate effect.
+
+########################################### Kibana handlers #############################################
+
+- name: Restart the kibana service
+  systemd:
+    name: kibana
+    state: restarted
+    enabled: true
+    daemon_reload: true
+  listen: kibana restart service
+
+- name: Check kibana was started succesfully
+  uri:
+    url: "http://{{ kibana_config.server.host }}:{{ kibana_config.server.port }}"
+    return_content: true
+    validate_certs: true
+  register: result
+  until: result is success
+  retries: 60
+  delay: 20
+  failed_when:
+    - result is failed
+    - result.status != 200
+  listen: kibana restart service
+
+########################################### Elastic Beats handlers #############################################
+
+- name: Linux handlers
+  block:
+    - name: "{{ beats_flavor }}: Restart systemd service"
+      systemd:
+        name: "{{ beats_service_name }}"
+        state: restarted
+        enabled: true
+        daemon_reload: true
+      listen: beats-restart-service
+      
+    - name: "{{ beats_flavor }}: Check that beats service has started successfully"
+      docker_container_info:
+        name: "{{ beats_flavor }}"
+      register: container_info
+      until: container_info.exists and container_info.container.State.Running
+      retries: 60
+      delay: 20
+      listen: beats-restart-service
+      failed_when: not container_info.exists
+
+  when:
+    - beats_enable_service | bool
+    - ansible_os_family != 'Windows'
+    - beats_flavor != 'winlogbeat'
+
+- name: "{{ beats_flavor }}: Start windows service"
+  win_service:
+    name: "{{ beats_flavor }}"
+    state: restarted
+  listen: beats-restart-service
+  when:
+    - beats_enable_service | bool
+    - ansible_os_family == 'Windows'

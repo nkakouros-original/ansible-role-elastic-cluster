@@ -1,0 +1,14 @@
+---
+
+- hosts: localhost:5067
+  metricsets:
+    - stats
+    - state
+  module: beat
+  period: 5s
+  service:
+    name: metribeat-monitors-itself
+  tags:
+    - metricbeat
+  xpack:
+    enabled: true

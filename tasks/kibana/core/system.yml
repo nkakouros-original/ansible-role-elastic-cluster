@@ -1,0 +1,14 @@
+---
+
+- name: Create kibana group
+  group:
+    name: "{{ kibana_group }}"
+    system: true
+
+- name: Create kibana user
+  user:
+    name: "{{ kibana_user }}"
+    group: "{{ kibana_group }}"
+    system: true
+    createhome: false
+  when: kibana_user != 'root'

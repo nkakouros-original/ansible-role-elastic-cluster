@@ -1,0 +1,22 @@
+---
+
+- name: Create scripts directory
+  file:
+    path: "{{ beats_path_config }}/scripts/"
+    state: directory
+    owner: root
+    group: root
+    mode: 0o644
+  when: beats_processor_scripts | length > 0
+
+- name: Upload scripts for the script processor
+  copy:
+    src: "{{ _beats__script }}"
+    dest: "{{ beats_path_config }}/scripts/"
+    owner: root
+    group: root
+    mode: 0o644
+  loop: "{{ beats_processor_scripts }}"
+  loop_control:
+    loop_var: _beats__script
+  notify: beats-restart-service

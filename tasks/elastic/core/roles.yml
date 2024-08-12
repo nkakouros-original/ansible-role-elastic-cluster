@@ -1,0 +1,22 @@
+---
+
+- name: Create custom user roles
+  uri:
+    url: "{{ elastic_node_address }}/_security/role/{{ _elasticsearch__role.name }}"
+    method: POST
+    body:
+      run_as: "{{ _elasticsearch__role.run_as | d(omit) }}"
+      cluster: "{{ _elasticsearch__role.cluster | d(omit) }}"
+      global: "{{ _elasticsearch__role.global | d(omit) }}"
+      indices: "{{ _elasticsearch__role.indices | d(omit) }}"
+      applications: "{{ _elasticsearch__role.applications | d(omit) }}"
+    body_format: json
+    headers:
+      Content-Type: application/json
+    force_basic_auth: true
+    url_username: "{{ _elastic_elastic_user['name'] }}"
+    url_password: "{{ _elastic_elastic_user['pass'] }}"
+    validate_certs: false
+  loop: "{{ elastic_custom_roles }}"
+  loop_control:
+    loop_var: _elasticsearch__role

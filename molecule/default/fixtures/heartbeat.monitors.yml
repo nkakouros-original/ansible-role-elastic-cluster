@@ -1,0 +1,19 @@
+---
+
+# An example of a (nonsense) monitor that checks if the machine running filebeat
+# responds to pings.
+
+- name: Localhost is up
+  id: localhost-monitor
+  type: icmp
+  enabled: true
+  tags:
+    - ping
+    - nonsense
+  schedule: '@every 5s'
+  hosts:
+    - 127.0.0.1
+  processors:
+    - add_observer_metadata:
+        geo:
+          name: home

@@ -1,0 +1,9 @@
+---
+
+- type: log
+  enabled: true
+  paths:
+    - /tmp/if-it-existed-it-would-push-logs
+  include_lines:
+    - 'useful-log-line: '
+  pipeline: my_custom_log_pipeline

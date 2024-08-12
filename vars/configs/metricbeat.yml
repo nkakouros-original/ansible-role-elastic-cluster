@@ -1,0 +1,10 @@
+---
+
+# Default config coming with metricbeat 7.0
+_beats_flavor_specific_default_config:
+  metricbeat:
+    config:
+      modules:
+        path: "{{ beats_metricbeat_modules_dir }}/*.yml"
+        reload:
+          enabled: false

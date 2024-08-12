@@ -1,0 +1,21 @@
+---
+
+- name: Set up and start Elasticsearch
+  block:
+    - name:  Deploy Elasticsearch script
+      template:
+        src: "elasticsearch"
+        dest: /usr/local/bin/elasticsearch
+        mode: 0755
+        owner: root
+        group: root
+
+    - name: Deploy Elasticsearch systemd service file
+      template:
+        src: "elasticsearch.service"
+        dest: /etc/systemd/system/elasticsearch.service
+        mode: 0644
+        owner: root
+        group: root
+      notify: elastic-restart-service   
+  when: elastic_full_version is version(elastic_user_version, '<')

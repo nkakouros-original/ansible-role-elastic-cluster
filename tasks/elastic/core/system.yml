@@ -1,0 +1,15 @@
+---
+
+- name: Create elastic group
+  group:
+    name: "{{ elastic_group }}"
+    gid: 1000
+    system: true
+
+- name: Create elastic user
+  user:
+    name: "{{ elastic_user }}"
+    group: "{{ elastic_group }}"
+    uid: 1000
+    createhome: false
+    system: true

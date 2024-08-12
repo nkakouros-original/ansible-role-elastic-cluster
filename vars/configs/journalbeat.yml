@@ -1,0 +1,8 @@
+---
+
+# Default config coming with journalbeat 7.0
+_beats_flavor_specific_default_config:
+  journalbeat:
+    inputs:
+      - paths: []
+        seek: cursor

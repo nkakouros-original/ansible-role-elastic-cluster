@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+docker pull docker.elastic.co/beats/{{ beats_flavor }}:{{ beats_major_version }}.{{ beats_minor_version }}.{{ beats_patch_version }}
+
+# Remove any existing container
+docker rm -f -v {{ beats_flavor }} || :
+
+# Run the MetricBeat container
+docker run --network=elastic --user root  --rm --name={{ beats_flavor }}  \
+  -v "/var/run/docker.sock:/var/run/docker.sock:ro" \
+  -v "/sys/fs/cgroup:/hostfs/sys/fs/cgroup:ro" \
+  -v "/proc:/hostfs/proc:ro" \
+  -v "/:/hostfs:ro" \
+  -v {{ beats_certificates_dir }}:{{ beats_certificates_dir }} \
+  -v {{ beats_path_config }}/scripts:{{ beats_path_config }}/scripts \
+  -v {{ beats_path_config }}/{{ beats_flavor }}.yml:{{ beats_path_config }}/{{ beats_flavor }}.yml \
+  -v {{ beats_path_config }}/fields.yml:{{ beats_path_config }}/fields.yml \
+  -v {{ beats_path_data }}:{{ beats_path_data }} \
+  -v {{ beats_path_logs }}:{{ beats_path_logs }} \
+  docker.elastic.co/beats/{{ beats_flavor }}:{{ beats_major_version }}.{{ beats_minor_version }}.{{ beats_patch_version }} metricbeat -e \
+  $BEAT_LOG_OPTS $BEAT_CONFIG_OPTS $BEAT_PATH_OPTS

@@ -1,0 +1,133 @@
+---
+
+beats_flavor: "{{ lookup('env', 'MOLECULE_BEATS_FLAVOR') | default('auditbeat', true) }}"
+beats_unset_facts: true
+
+beats_major_version: "{{ '7' if beats_flavor == 'journalbeat' else '8' }}"
+beats_minor_version: "{{ '15' if beats_flavor == 'journalbeat' else ('14' if beats_flavor != 'winlogbeat' else '12') }}"
+beats_patch_version: "{{ '2' if beats_flavor == 'journalbeat' else ('3' if beats_flavor != 'winlogbeat' else '0') }}"
+
+beats_enable_service: true
+
+# Configuration
+beats_check_output: false
+beats_uuid: "{{ inventory_hostname | to_uuid }}"
+beats_config:
+  auditbeat:  # ignored by other beats
+    modules:
+      - module: auditd
+        enabled: false
+      - module: file_integrity
+        enabled: false
+      - module: system
+        enabled: true
+        datasets:
+          - host
+          - login
+          - package
+          - process
+          - socket
+          - user
+  output:
+    console:
+      pretty: true
+  setup:
+    # ilm:
+    #   overwrite: false
+    #   check_exists: false
+    #   enabled: true
+    #   rollover_alias: "{{ beats_flavor }}-%{[agent.version]}"
+    #   pattern: "{now/d}-000001"
+    template:
+      enabled: false
+  monitoring:
+    # internal collection that pushes the data, disabled (`http` setting
+    # down below configures a better method: pull monitoring)
+    enabled: false
+    cluster_uuid:  # yet, this is needed even if `enabled: false` above
+      "{{ 'cluster_name' | to_uuid }}"
+  http:
+    enabled: true
+    host: 0.0.0.0
+    port: 5067
+
+# SystemD
+beats_installation_name: molecule
+
+# Index management
+beats_index_template_download_dir: /tmp/
+beats_extract_index_template: true
+beats_setup_index_management: "{{ beats_check_output }}"
+beats_setup_pipelines: "{{ beats_check_output }}"
+
+# Certificates
+beats_certificates:
+  ca: "~/pki/ca.crt"
+  crt: "~/pki/issued/beats.crt"
+  key: "~/pki/private/beats.key"
+beats_certificates_verification: 'none'
+beats_keystore_update: false
+beats_certificates_password: 'nk}$Q%];a3Gy$E!QvT8E'
+
+
+# Kibana dashboards
+beats_config_kibana_endpoint: false
+beats_setup_kibana_dashboards: "{{ beats_config_kibana_endpoint }}"
+
+# Processors
+beats_processor_scripts:
+  - "{{ role_path }}/molecule/default/fixtures/script-processor.js"
+
+
+  # Auditbeat specifics
+beats_auditbeat_rule_files:
+  - src: 00-default-rules.conf
+  - src: "{{ role_path }}/molecule/default/fixtures/auditbeat.rules.conf"
+  - dest: my-rules.conf
+    content: >-
+      -a exit,always
+      -F arch=b64
+      -S stat,lstat,fstat
+      -F path=/root
+      -F euid=root
+      -k molecule
+
+# Filebeat specifics
+beats_filebeat_input_files:
+  - "{{ role_path }}/molecule/default/fixtures/filebeat.inputs.yml"
+beats_filebeat_module_files:
+  - "{{ role_path }}/molecule/default/fixtures/filebeat.module.yml"
+beats_filebeat_modules:
+  - filebeat.module  # the custom module I upload via `beats_filebeat_module_files`
+  - iptables  # a module that ships with filebeat and is disabled by default
+
+# Heartbeat specifics
+beats_heartbeat_monitors:
+  - src: "{{ role_path }}/molecule/default/fixtures/heartbeat.monitors.yml"
+  - dest: my-custom-monitor.yml
+    content:
+      name: My custom monitor
+      id: my-custom-monitor
+      type: icmp
+      enabled: true
+      schedule: '@every 5s'
+      hosts:
+        - 127.0.0.2
+
+# Metricbeat specifics
+beats_metricbeat_module_files:
+  - src: "{{ role_path }}/molecule/default/fixtures/metricbeat.module.yml"
+  - dest: my-custom-module.yml
+    content:
+      - hosts: localhost:5060  # no service running there, metricbeat will report nothing
+        metricsets:
+          - stats
+          - state
+        module: beat
+        period: 5s
+        service:
+          name: service-down
+        tags:
+          - down-service
+        xpack:
+          enabled: true

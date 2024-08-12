@@ -1,0 +1,100 @@
+---
+
+- name: "{{ beats_flavor }}: kibana tasks for Linux"
+  block:
+    - name: "{{ beats_flavor }}: Create kibana certificates folder on Linux"
+      file:
+        path: "{{ beats_certificates_dir }}/kibana"
+        state: directory
+        owner: root
+        group: root
+        mode: 0o755
+
+    - name: "{{ beats_flavor }}: Upload certificates on Linux"
+      copy:
+        src: "{{ _beats__ssl_file }}"
+        dest: "{{ beats_certificates_dir }}/{{ _beats__ssl_file | basename }}"
+        owner: root
+        group: root
+        mode: 0o644
+      when:
+        - _beats__ssl_file != None
+      loop_control:
+        loop_var: _beats__ssl_file
+      loop:
+        - "{{ beats_kibana_ssl_ca }}"
+        - "{{ beats_kibana_ssl_crt }}"
+        - "{{ beats_kibana_ssl_key }}"
+      notify: beats-restart-service
+  when: ansible_os_family != 'Windows'
+
+- name: "{{ beats_flavor }}: kibana tasks for Windows"
+  block:
+    - name: "{{ beats_flavor }}: Create kibana certificates folder on Windows"
+      win_file:
+        path: "{{ beats_certificates_dir }}/kibana"
+        state: directory
+
+    - name: "{{ beats_flavor }}: Upload certificates on Windows"
+      win_copy:
+        src: "{{ _beats__ssl_file }}"
+        dest: "{{ beats_certificates_dir }}/{{ _beats__ssl_file | basename }}"
+      when:
+        - _beats__ssl_file != None
+      loop_control:
+        loop_var: _beats__ssl_file
+      loop:
+        - "{{ beats_kibana_ssl_ca }}"
+        - "{{ beats_kibana_ssl_crt }}"
+        - "{{ beats_kibana_ssl_key }}"
+      notify: beats-restart-service
+  when: ansible_os_family == 'Windows'
+
+- name: "{{ beats_flavor }}: Add Kibana endpoint to configuration"
+  set_fact:
+    beats_combined_config: >-
+      {{
+        _beats_kibana_endpoint
+        | combine(_beats_kibana_security, recursive=true)
+        | combine(beats_combined_config, recursive=true)
+      }}
+  vars:
+    _beats_kibana_endpoint:
+      setup:
+        dashboards:
+          enabled: true
+        kibana:
+          host: "{{ beats_kibana_host }}"
+          path: "{{ beats_kibana_path | default('', true) }}"
+    _beats_kibana_security: >-
+      {
+        'setup': {
+          'kibana': {
+            {%- if beats_kibana_username != None -%}
+              'username': '${KIBANA_USER}',
+            {%- endif -%}
+            {%- if beats_kibana_password != None -%}
+              'password': '${KIBANA_PASS}',
+            {%- endif -%}
+            'ssl': {
+              {%- if beats_kibana_ssl_ca != None -%}
+                'certificate_authorities': '{{ beats_certificates_dir
+                            }}/kibana/{{ beats_kibana_ssl_ca | basename }}',
+              {%- endif -%}
+              {%- if beats_kibana_ssl_crt != None -%}
+                'certificate': '{{ beats_certificates_dir }}/kibana/{{
+                                        beats_kibana_ssl_crt | basename }}',
+              {%- endif -%}
+              {%- if beats_kibana_ssl_key != None -%}
+                'key': '{{ beats_certificates_dir }}/kibana/{{
+                                        beats_kibana_ssl_key | basename }}',
+              {%- endif -%}
+              {%- if beats_kibana_ssl_key_passphrase != None -%}
+                'key_passphrase': '${ES_KIBANA_CERT_PASSPHRASE}',
+              {%- endif -%}
+              'enabled': {{
+                          beats_kibana.ssl.enabled | default(false, true) }}
+            }
+          }
+        }
+      }

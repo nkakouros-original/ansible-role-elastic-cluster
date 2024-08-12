@@ -1,0 +1,30 @@
+---
+
+- name: Check if Kibana configuration directory exists
+  stat:
+    path: "{{ kibana_config_dir }}"
+  register: kibana_config_dir_status
+
+- name: Create Kibana configuration directory 
+  file:
+    path: "{{ kibana_config_dir }}"
+    state: directory
+    owner: "{{ kibana_user }}"
+    group: "{{ kibana_group }}"
+    mode: '0777'
+    recurse: true
+  when: not kibana_config_dir_status.stat.exists
+
+- name: Check if Kibana configuration file exists
+  stat:
+    path: "{{ kibana_config_dir }}/kibana.yml"
+  register: kibana_config_file
+
+- name: Create Kibana configuration file
+  template:
+    dest: "{{ kibana_config_dir }}/kibana.yml"
+    owner: "{{ kibana_user }}"
+    group: "{{ kibana_group }}"
+    mode: '0644'
+    src: "kibana.yml"
+  when: not kibana_config_file.stat.exists

@@ -1,0 +1,10 @@
+---
+
+- name: Get elasticsearch version
+  command: docker exec elasticsearch /usr/share/elasticsearch/bin/elasticsearch --version
+  register: _elastic_version_output
+  changed_when: false
+
+- name: Register elasticsearch version
+  set_fact:
+    elastic_full_version: "{{ _elastic_version_output.stdout_lines[0].split(' ')[1] | replace(',', '') }}"

@@ -1,0 +1,21 @@
+---
+
+kibana_elastic_certificates:
+    ca: "~/pki/ca.crt"
+    crt: "~/pki/issued/kibana-backend.crt"
+    key: "~/pki/private/kibana-backend.key"
+
+kibana_elasticsearch_user: >-
+      {{
+        (
+          lookup('file', elastic_builtin_users_password_backup_file)
+          | from_yaml
+          | selectattr('name', 'equalto', 'kibana')
+          | list
+        )[0]
+      }}
+
+elastic_certificates_password: 'nk}$Q%];a3Gy$E!QvT8E'
+
+kibana_elastic_certificates_passphrase:
+      "{{ elastic_certificates_password }}"

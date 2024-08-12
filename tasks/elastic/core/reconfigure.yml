@@ -1,0 +1,14 @@
+---
+
+- name: Update elasticsearch.yml
+  copy:
+    content: >-
+      {{
+        elastic_final_config
+        | to_nice_yaml(indent=2, explicit_start=True)
+      }}
+    dest: "{{ es_config_dir }}/elasticsearch.yml"
+    owner: "{{ elastic_user }}"
+    group: "{{ elastic_group }}"
+    mode: 0o660
+  notify: elastic-restart-service

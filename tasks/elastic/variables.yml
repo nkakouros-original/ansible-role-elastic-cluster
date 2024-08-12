@@ -1,0 +1,51 @@
+---
+
+- name: Initialize variable
+  set_fact:
+    elastic_combined_config: {}
+
+- name: Create elasticsearch node address
+  set_fact:
+    elastic_node_address: >-
+      http{{ elastic_ssl_http | ternary('s', '') }}://{{
+        elastic_config.http.host[0] }}:{{
+        elastic_config.http.port }}
+
+- name: Check if elasticsearch already installed
+  stat:
+    path: "{{ es_config_dir }}/elasticsearch.yml"
+  register: _elastic_already_installed
+
+- name: Initialize variables
+  set_fact:
+    _elastic_elastic_user:
+      name: demo  # arbitrary value to initialize the variable
+      pass: demo
+    elastic_full_version: '0.0.0.'
+
+- name: Build user defined version string
+  set_fact:
+    elastic_user_version: >-
+      {{
+        elastic_major_version | string
+      }}{{
+        '.' + elastic_minor_version | string if elastic_minor_version != '*'
+                                             else ''
+      }}{{
+        '.' + elastic_patch_version | string if elastic_minor_version != '*'
+                                             and elastic_patch_version != '*'
+                                             else ''
+      }}
+
+- name: Check if elasticsearch is already running
+  block:
+    - name: Read existing services
+      service_facts: ~
+      register: _elasticsearch__services
+    - name: Register elasticsearch service status
+      set_fact:
+        _elasticsearch__new_cluster: >-
+          {{
+            'elasticsearch.service' in _elasticsearch__services.ansible_facts.services.keys()
+            and _elasticsearch__services.ansible_facts.services['elasticsearch.service'].state == 'running'
+          }}

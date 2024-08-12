@@ -1,0 +1,10 @@
+---
+
+_beats_flavor_specific_default_config:
+  heartbeat:
+    config:
+      monitors:
+        path: "{{ beats_heartbeat_monitors_path }}/*.yml"
+      reload:
+        enabled: true
+        period: 5s

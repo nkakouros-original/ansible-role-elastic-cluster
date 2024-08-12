@@ -1,0 +1,10 @@
+---
+
+_beats_packages:
+  all:
+    - gpg  # needed by `apt_key` module
+    - ca-certificates
+  packetbeat:
+    - libpcap0.8
+  winlogbeat:
+    - unzip

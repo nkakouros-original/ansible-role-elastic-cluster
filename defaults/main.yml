@@ -1,0 +1,656 @@
+---
+
+########################################### Elasticsearch variables #############################################
+
+elastic_enabled: true
+# Set to false to completely disable the role
+
+# Installation{{{
+elastic_major_version: 8
+# The major version of elasticsearch to install. This will also be used to add
+# the relevant repository.
+
+elastic_minor_version: 14
+# The minor version of elasticsearch to install. Set to `'*'` to install the
+# latest minor version for the `elastic_major_version`.
+
+elastic_patch_version: 2
+# The patch version of elasticsearch to install. Set to `'*'` to install the
+# latest patch version. If `elastic_minor_version` is set to `'*'` this is
+# effectively ignored.
+
+# memory settings
+
+elastic_jvm_min_heap_size: 1g
+elastic_jvm_max_heap_size: 1g
+
+
+elastic_ssl_http: false
+elastic_ssl_transport: false
+# Set to true to have the role populate the elasticsearch settings that will
+# enable TLS encryption for the HTTP endpoint and the transport layer
+# respectively. If you keep these variable to false, you will have to manually
+# configure elasticsearch (via the `elastic_config` variable) to use the
+# certificates.
+
+elastic_ssl_verification_mode: full
+# Whether to request connecting clients to provide a valid certificate. This
+# will be used if `elastic_ssl_http/elastic_ssl_transport` are set to true.
+
+elastic_systemd_override: ~
+# Use this to override system settings using a systemd override. Eg:
+# elastic_systemd_override: |
+#   [Service]
+#   LimitMEMLOCK=infinity
+
+elastic_config:
+  http:
+    host:
+      - 0.0.0.0
+    port: 9200
+  transport:
+    host:
+      - 0.0.0.0
+    port: 9300
+  cluster:
+    name: elasticsearch
+  node:
+    name: "{{ inventory_hostname }}"
+    roles: [ master, data, ingest ]
+  discovery:
+    seed_providers:
+      - settings
+    seed_hosts:
+      - 0.0.0.0
+    type: single-node  # `zen`: multi-node cluster, `single-node`: single node cluster
+  path:
+    data: /usr/share/elasticsearch/data
+    logs: "{{ es_log_dir }}"
+  xpack:
+    security:
+      hide_settings: 'xpack.security.authc.realms.native.*'
+      enabled: false
+      transport.ssl.enabled: false
+      http.ssl.enabled: false
+
+elastic_config_initial_overrides: ~
+# Use this variable to set configuration options that will be valid only the
+# first time elasticsearch is installed and started. This will be merged
+# **non-recursively** with `elastic_config` to produce the initial configuration
+# for elasticsearch. This is useful, for instance, to start a single node
+# cluster where you create users, import pipelines, etc and which you then want
+# to convert into a multiple node cluster. With this variable, you can set for
+# the first node you will be creating in the cluster:
+#
+# ```
+# elastic_config_initial_overrides:
+#   discovery:
+#     type: single-node
+#   cluster:
+#     name: "{{ elastic_config.cluster.name }}"
+#     # needs to be repeated from `elastic_config` since `elastic_config` and
+#     `elastic_config_initial_overrides` will be merged non-recursively and the
+#     `cluster` key will completely override the same key of `elastic_config`.
+
+elastic_certificates_password: ~
+# The password to use to protect the generated private keys. Leave empty to set
+# the empty string as the password. Certificates do need to have a password even
+# if it is blank.
+
+elastic_certificates_password_renew: false
+# When uploading a certificate to a node, its password will be stored to the
+# elasticsearch keystore on that node. If you change the
+# `elastic_certificates_password` eg when renewing certificates, then the old
+# password stored on a node's keystore will cause failures. Thus, if you are
+# updating the certificate password, set this variable to true to update the
+# node's keystore as well. The default here is false to support idempotency.
+
+
+elastic_user: elasticsearch
+
+elastic_group: elasticsearch
+
+
+# elasticearch settings
+es_config_dir: "/usr/share/elasticsearch/config"
+es_data_dir: "/usr/share/elasticsearch/data"
+es_log_dir: "/var/log/elasticsearch"
+
+# Plugins {{{
+elastic_plugins: []
+# A list of elasticsearch plugins to install. This can be a list of plugin
+# names, urls, etc or a list dicts like the one below. You can also mix the two
+# formats.
+# ```
+# elastic_plugins:
+#   - repository-aws
+#   - name: repository-gcs
+#     mandatory: true
+# ```
+# The `mandatory` keyword will instruct the role to add this plugin in the
+# comma-separated list under `plugin.mandatory` in the `elastic_config`. This
+# means that elasticsearch will fail to start if the plugin is not installed.
+
+# Repository GCS {{{
+# For this plugin, you need to create a Google Cloud Storage and Google Cloud
+# credentials outside of this role.
+
+elastic_plugin_gcs_enabled: false
+# Set to true to have the role configure the repository-gcs plugin.
+
+elastic_plugin_gcs_credentials: ~
+# The GCP credentials to use for the repository-gcs plugin. This must be set if
+# the plugin is enabled, otherwise the role will fail. The format is as follows:
+# ```
+# elastic_plugin_gcs_credentials:
+#   name: client  # the name of the client, to be used when defining snapshots
+#   src: /local/path/to/json/file
+# ```
+
+elastic_plugin_gcs_refresh_credentials: false
+# Set to true to replace any already stored credentials.
+
+elastic_plugin_gcs_bucket_name: my-bucket
+# The google cloud storage bucket that will be used to store the snapshots.
+# }}}
+# }}}
+# Snapshots {{{
+elastic_snapshot_repositories: []
+# A list of snapshot repositories. The format is as follows.
+# ```
+# elastic_snapshot_repositories:
+#   - name: repo-name
+#     type: fs
+#     settings:
+#       location: "/mnt/snapshots/"
+#       compress: true
+# ```
+# To use a snapshot type that is offered by a plugin, use `elastic_plugins` to
+# install the required plugin first.
+
+elastic_snapshot_policy_enable: true
+# Set to false to halt all snapshot lifecycle management operations.
+
+elastic_snapshot_policies: []
+# A list of snapshots policies to install. The format is as follows.
+# ```
+# elastic_snapshot_policies:
+#   - id: my-sql-policy
+#     name: 'my-index-{now/d}'
+#     repository: repo-name
+#     config:
+#       indices: ['*']
+#     schedule: "0 39 1 * * ?"
+#     retention:
+#       expire_after: 30d
+#       min_count: 4
+#       max_count: 30
+# ```
+# }}}
+
+elastic_ingest_pipelines: []
+# A list of files that contain a list of ingest pipeline specifications in yaml
+# format. Example:
+# ```
+# elastic_ingest_pipelines:
+#   - src: /path/to/file
+# ```
+#
+# Alternatively, you can provide the pipeline inline using the following syntax:
+# ```
+# elastic_ingest_pipelines:
+#   - description: ...
+#     ...
+# ```
+#
+# Here is an example of an OpenVPN log file parsing pipeline:
+# ```
+# pipelines:  # this key is needed if the pipeline is stored in a file
+#   - description: "openvpn-connection-log-line"
+#     processors:
+#       - grok:
+#           field: message
+#           ignore_failure: true
+#           patterns:
+#             - >-
+#                 %{TIMESTAMP:openvpn.date} %{DATA}
+#                   \\[%{DATA:openvpn.common_name}\\] Peer Connection Initiated
+#                   with \\[AF_INET\\]%{IP:openvpn.host}:%{POSINT:openvpn.port}
+#           pattern_definitions:
+#             TIMESTAMP: "%{DAY} %{MONTH}  ?%{MONTHDAY} %{TIME} %{YEAR}"
+#       - gsub:
+#           field: "openvpn.date"
+#           pattern: "  "
+#           replacement: ' '
+#       - date:
+#           field: "openvpn.date"
+#           formats:
+#             - EEE MMM d HH:mm:ss yyyy
+# ```
+
+elastic_stored_scripts: []
+# A list of scripts to store on elasticsearch for faster use in ingest node
+# pipelines, etc. The format is:
+# elastic_stored_scripts:
+#   - name: my-script
+#     lang: painless
+#     source: "ctx.agent.type == 'packetbeat'"
+
+elastic_api_requests: []
+# A list of arbitrary API requests to perform. The previous variables are
+# provided for convenience. You could replace them with this variable here. The
+# format of this variable is for example:
+# ```yaml
+# elastic_api_requests:
+#   - name: just-a-name-for-your-documentation-not-used-by-the-role
+#     path: "_scripts/my-script"
+#     method: PUT
+#     body:
+#       script:
+#         lang: painless
+#         source: ...
+#   ```
+elastic_cluster_uuid_backup: ~
+# Set to a file on the controller where you would like the cluster uuid to be
+# stored. The cluster uuid is useful when e.g. setting up beats monitoring and
+# you want to include the beats in the same cluster as elasticsearch.
+# }}}
+
+# Roles {{{
+elastic_custom_roles: []
+# Use this variable to define a list of custom roles for users. The syntax of
+# each role is simply the YAML equivalent of the json syntax for defining a role
+# (see the docs). Example:
+# }}}
+# Native realm {{{
+elastic_users: []
+# Example:
+# elastic_users:
+#   - name: my_user  # required
+#     pass: my_pass  # required
+#     enabled: true  # defaults to true
+#     email: user@email.com
+#     full_name: User Name
+#     roles:         # you can also use `groups` instead of `roles`
+#       - beats_admin
+#
+# Use this variable to create custom users on Elasticsearch. Depending on your
+# workflow, you may also want to use this to add custom passwords for the
+# built-in users, which will overwrite the random ones created by the role.
+# }}}
+
+########################################### Kibana variables #############################################
+
+kibana_enabled: true
+# Set to false to completely disable the role
+
+kibana_user: kibana
+kibana_group: kibana
+
+kibana_version: 8.14.3
+
+kibana_config_dir: "/usr/share/kibana/config"
+
+kibana_elastic_certificates_dir: /usr/share/kibana/config/certs
+
+# The path where the `kibana_elastic_certificates` will be uploaded into.
+
+kibana_config:
+  csp:
+    strict: true
+  elasticsearch:
+    hosts:
+      - "http{{ (kibana_elastic_certificates != None) | ternary('s', '') }}://localhost:9200"
+  server:
+    host: 0.0.0.0
+    port: 5601
+    name: "{{ inventory_hostname }}"
+  telemetry:
+    enabled: false
+  elasticsearch:
+    ssl:
+      alwaysPresentCertificate: true
+
+kibana_elasticsearch_user: ~
+# The elasticsearch user that kibana will use to connect to elasticsearch. Leave
+# it `None`/`~` if there is no such user configured (ie if the default built-in
+# user should be used without a password). Valid keys:
+# kibana_elasticsearch_user:
+#   name: UserName
+#   pass: UserPassword
+
+kibana_elastic_certificates_passphrase: ~
+# The passphrase used to encrypt the node's private key. If none, leave this
+# setting to `None`/`~`.
+
+kibana_update_passwords: false
+# Set to true to update the `kibana_user.password` and
+# `kibana_elastic_certificates_passphrase` in the kibana keystore. By default
+# this is off to support idempotenty in ansible.
+# }}}
+
+########################################### Elastic Beats variables #############################################
+
+# Set to false to completely disable the role
+beats_enabled: true
+
+beats_flavor: auditbeat
+# Set this variable to the name of the beat that you want the role to install
+# and configure. You can even specify `winlogbeat` for a linux system and the
+# role will use wine to run it. This is useful if you want to run `winlogbeat
+# setup` on a linux server running elasticsearch to get the winlogbeat template,
+# etc inserted).
+
+beats_unset_facts: true
+# Set this to true to set to None some variables that this role uses. Set it to
+# true if you want to use this role multiple times during an ansible run.  Such
+# variables are set to defaults by the role, not through this defaults.yml file
+# but by using `set_fact` tasks. This is done to provide defaults based on the
+# OS you are using. This single defaults.yml file could have only been used to
+# provide defaults for a single OS. Since these variables are assigned a value
+# with `set_fact`, they will keep their value throughout an ansible run, i.e.
+# they will be exposed to the playbook. If you include this role more than once,
+# e.g. in a loop, in order to install more than one beat (e.g. both auditbeat
+# and packetbeat), the `set_fact` tasks this role uses will be skipped since the
+# variables already have a value. This means that the second beat will be
+# installed with the settings of the first, which is wrong. Setting
+# `beats_unset_facts` to true, will unset such sensitive variables so that the
+# second beat can be configured properly. Of course, this means that you will
+# not be able to access these variables from your playbooks anymore.
+
+
+beats_major_version: 7
+# The version of beats to install, eg 6, 7, etc.
+
+beats_minor_version: 7
+# The minor version of beats to install. Set to `*` to install the latest minor
+# version.
+
+beats_patch_version: 1
+# The patch version of beats to install. Set to `*` to install the latest patch
+# version. If `beats_minor_version` is set to `*`, this will be effectively
+# ignored.
+
+beats_output_user: ~
+beats_output_pass: ~
+# Set these variables to the credentials that beats should use to login to
+# the output that you have configured in `beats_config`. These are used by
+# the role to store the output user/pass in the secure keystore. They are not
+# used for any other task. When configuring your output in `beats_config`,
+# you can reference these variables using `${OUTPUT_USER}` and `${OUTPUT_PASS}`.
+
+beats_path_home: ~
+beats_path_config: ~
+beats_path_data: ~
+beats_path_logs: ~
+# Use this variables to override the default paths that come with this role for
+# your OS (which are set by default to the per-OS values defined in the official
+# Beats documentation).
+
+beats_check_output: false
+# Check if beats can connect successfully to the configured output before
+# starting beats.
+
+beats_config: "{{ _beats_flavor_specific_default_config }}"
+# The beats configuration.
+
+beats_uuid: ~
+# A custom uuid to set for the beat installation. A uuid is generated
+# automatically when the beat first runs (under `path_data`/meta.json). But, if
+# you want to install the beat in an image that you will later use to spawn
+# several instances from, you should override the uuid in the image for each of
+# the spawned instances so that they don't all have the same uuid. Otherwise,
+# confusion could ensue e.g.  in the Kibana Stack Monitoring pages, where
+# traffic from these instances will be considered as originating from a single
+# instance.
+
+beats_installation_name: default
+# Use this variable to differentiate among multiple installations of the same
+# beats flavor on the same machine. This name will be used to create a file with
+# the same name that will be used to store environment variables (as explained
+# above) specific only to this installation. The role will install an
+# instantiate-able service (e.g. auditbeat@.service) which you can use to manage
+# the specific installation. For example:
+#
+# `systemctl start/enabled audibeat@<installation-name>`
+#
+# When this variable is set to `default`, no extra, instantiate-able service
+# will be installed. This happens only for the installations of the beat that
+# have a different name.
+
+beats_enable_service: true
+# Whether the beats service should be enabled at the end of the role.
+
+beats_systemd_override: |
+  [Service]
+  # Clear this setting, otherwise it is additive.
+  Environment=
+  EnvironmentFile=-/etc/{{ beats_flavor }}/{{ beats_installation_name }}.env.vars
+  ExecStart=
+  ExecStart=/usr/local/bin/{{ beats_flavor }}
+# Use this variable to override variables in the default systemd service file
+# for beats. Set to none (`~`) to disable the override. The default value above
+# loads environment variables from a file that this roles creates. This file
+# will use the settings from `beats_path_*` variables as well as any variable
+# mentioned below to set logging options and paths in the above systemd file.
+
+beats_certificates: ~
+# Certificates that the beats output should use to authenticate with the remote
+# output. Use this variable to point to certificate files on the ansible
+# controller that should be uploaded to the beats server. This variable will
+# also be used to construct the relevant section in the output configuration of
+# beats. The format of this variable is as follows: beats_certificates:
+#   ca: path/to/ca/cert
+#   cert: path/to/node/cert
+#   key: path/to/node/key
+
+beats_certificates_dir: ~
+# The folder where `beats_certificates` will be uploaded into. If you leave this
+# empty, the folder depends on the OS you are using and is defined in the
+# `vars/paths/YOUR_OS_FAMILY_HERE.yml` file that comes with this role (via the
+# `_beats_certificates_dir` variable).
+
+beats_certificates_password: ''
+# The password used to protect the generated private keys. Leave empty if the
+# certificates are not password protected. The password will be available as
+# `${OUTPUT_CERT_KEY_PASSPHRASE}` to use in `beats_config`. An empty password
+# equals an unset password. Do not set this variable to None/~ as in this case,
+# it will not be added to the keystore. This will lead to the variable
+# `${OUTPUT_CERT_KEY_PASSPHRASE}` to be undefined in `beats_config`.
+
+beats_keystore_update: false
+# Set to true if you need to update the passwords and certificate passphrases
+# that are stored in the keystore. Set this to true if you changed any password
+# or passphrase.  This is false by default to support idempotency.
+
+beats_certificates_verification: full
+# Control whether to verify the certificate that the server will present. Set it
+# to `none` to disable verification.
+
+beats_config_kibana_endpoint: false
+# Set to true to configure the kibana endpoint. Doing so will add the required
+# directives in `beats_config` automatically, using the variables below. Set
+# this variable to false if you want to manually configure the kibana endpoint
+# in `beats_config` and ignore the variables below (if you do that, note that
+# the role will not upload or otherwise handle ssl certificates for the kibana
+# endpoint and you will have to take care of them yourself).
+
+beats_setup_kibana_dashboards: false
+# Whether to try to install the dashboards manually. If you configure the kibana
+# endpoint with `beats_config_kibana_endpoint`, but leave this variable to
+# false, then the beat will try to communicate with Kibana and install the
+# dashboards automatically every time it is started. If you set this to true,
+# then the role will manually run the setup command that will load the
+# dashboards to kibana.
+
+beats_kibana_host: ~
+# Address where the Kibana endpoint can be reached at.
+
+beats_kibana_path: ~
+# HTTP path prefix to prepend to http api calls
+
+beats_kibana_username: ~
+beats_kibana_password: ~
+# The user credentials that beats should use to log into the Kibana
+# endpoint. Leave `None` if no user login is needed.
+
+beats_kibana_ssl_ca: ~
+beats_kibana_ssl_crt: ~
+beats_kibana_ssl_key: ~
+beats_kibana_ssl_key_passphrase: ~
+# The role will by default add to `beats_config` a kibana endpoint configuration
+# based on you settings above. If you want to manually configure the kibana
+# endpoint or use the above info in your config, then here are some more
+# details. The certificate files will be uploaded to the beats server at the `{{
+# beats_certificates_dir }} /kibana` directory. The username, password and
+# key_passphrase will be added to the secure keystore and you can refer to them
+# in you `beats_config` with `${KIBANA_USER}`, `${KIBANA_PASS}` and
+# `${KIBANA_CERT_KEY_PASSPHRASE}` respectively.
+
+# Processors {{{
+beats_processor_scripts: []
+# A list of javascript files (.js) that you want to use with the `script`
+# processor. The files will be uploaded under `/etc/{{ beats_flavor }}/scripts`
+# and you can reference them in `beats_config` using the relative path, e.g.
+# `scripts/my-scripts.js`. Not all beats support this processor, check the docs
+# to see if it meaningful to use this variable with the beat of your choice.
+# }}}
+
+beats_setup_template_field_overrides: []
+# A list of replacement patters for the `blockinfile` module that will be used
+# to change settings for the default fields that come with the beat. For
+# instance, if you want to change packetbeat's `url.full` field to have a longer
+# maximum length than 1024 bytes (as of version 7.12), you can use:
+# beats_setup_template_fields:
+# - marker_begin: "        The `#` is not part of the fragment.'"
+#   marker_end: '      multi_fields:'
+#   block: |2
+#         - name: full
+#           level: extended
+#           type: keyword
+#           ignore_above: 8192
+
+beats_auditbeat_rules_dir: "{{ beats_path_config }}/audit.rules.d"
+
+beats_auditbeat_rule_files: []
+
+beats_auditbeat_mask_journald_audit: true
+# Set this to true to prevent journald from listening for audit messages. This
+# should save on CPU and disk space.
+
+beats_extract_index_template: false
+# Whether to extract the default index template that comes with beats. This
+# template is automatically loaded to elasticsearch if the elasticsearch output
+# is configured in the beats configuration. If, however, beats does not
+# communicate directly with elasticseach (eg only a `logstash` output has been
+# configured), then the template needs to be manually loaded. Use this variable
+# to extract the index template and download it to the ansible controller so
+# that it can be loaded into elasticsearch manually (or via an `elasticsearch`
+# ansible role, such as `nkakouros.elasticsearch`). The extracted index template
+# will be named `beats.7.1.1.template.json`, where `7.1.1` will be the
+# actual installed version of beats.
+
+beats_index_template_download_dir: "{{ lookup('env', 'PWD') }}/"
+# Where on the ansible controller the index template should be downloaded to.
+
+beats_setup_index_management: false
+# Whether to manually install the index template into elasticsearch. If an
+# elasticsearch output is configured, the index template will be automatically
+# loaded to elasticsearch when the beat is started. This variable allows you to
+# import the index template manually, without even starting the beat, using the
+# setup subcommand that comes with the beats. This option also loads index
+# lifecycle policies and any ingest pipelines.
+
+beats_setup_pipelines: false
+# Whether to install the ingest node pipelines into elasticsearch that come with
+# the beat and allow elasticsearch to process the logs sent by the beat.
+
+# Filebeat specifics {{{
+beats_filebeat_inputs_dir: "{{ beats_path_config }}/inputs.d"
+# The directory where filebeat input configuration files are located. This
+# settings sets the `beats_config.filebeat.config.inputs.path` option (unless
+# you overwrite the role default) and is also used by the role to know where it
+# should upload the files in `beats_filebeat_input_files`.
+
+beats_filebeat_input_files: []
+# A list of files on the Ansible controller that contain filebeat input
+# definitions and that the role should upload to the remote.
+
+beats_filebeat_modules_dir: "{{ beats_path_config }}/modules.d"
+# The directory where filebeat module configuration files are located. This
+# settings sets the `beats_config.filebeat.config.modules.path` option (unless
+# you overwrite the role default) and is also used by the role to know where it
+# should upload the files in `beats_filebeat_module_files`.
+
+beats_filebeat_module_files: []
+# A list of files on the Ansible controller that contain filebeat module
+# configurations and that the role should upload to the remote. Since filebeat
+# comes with configuration files for all modules it supports, this list can be
+# used to overwrite an existing configuration. The module will be disabled by
+# if the source file has a `.disabled` suffix (e.g.
+# `path/to/my-custom-module.yml.disabled`) and enabled if it ends in `.yml`. You
+# don't need to specify it in the `beats_filebeat_modules` variable in the
+# second case since it will already be enabled (but it is a good idea to do so
+# for consistency).
+
+beats_filebeat_modules: []
+# List of filebeat modules to enable.
+
+beats_filebeat_modules_disable: []
+# List of filebeat modules to disable.
+# }}}
+# Heartbeat specifics {{{
+beats_heartbeat_monitors_path: "{{ beats_path_config }}/monitors.d"
+# A directory where dynamically loaded monitor config files are located.
+
+beats_heartbeat_monitors: []
+# A list of monitor conf files that should be uploaded to
+# `beats_heartbeat_monitor_files`. Example:
+# ```
+# beats_heartbeat_monitors:
+#   - src: local/path/to/file
+# ```
+#
+# You can also specify monitors inline:
+# ```
+# beats_heartbeat_monitors:
+#   - content:
+#       name: monitor-1
+#       type: http
+#       ...
+#     dest: monitor1.yml
+# ```
+#
+# You can also combine the two formats.
+# }}}
+# Metricbeat specifics {{{
+beats_metricbeat_modules_dir: "{{ beats_path_config }}/modules.d"
+# The directory where metricbeat module configuration files are located. This
+# settings sets the `beats_config.metricbeat.config.modules.path` option (unless
+# you overwrite the role default) and is also used by the role to know where it
+# should upload the files in `beats_metricbeat_module_files`.
+
+beats_metricbeat_module_files: []
+# A list of files on the Ansible controller that contain metricbeat module
+# configurations and that the role should upload to the remote. Since metricbeat
+# comes with configuration files for all modules it supports, this list can be
+# used to overwrite an existing configuration. The module will be enabled by
+# default unless the source file has a `.disabled` suffix.
+# ```yml
+# beats_metricbeat_module_files:
+#   - src: /path/to/your/file.conf
+# ```
+#
+# Alternatively, you can provide the file contents inline:
+# beats_metricbeat_module_files:
+#   - content:
+#       - module: elasticsearch
+#         ...
+#     dest: my-module.yml.disabled  # or without `.disabled` to have it enabled
+# The contents should a yaml structure.  The `dest` key is the name of the file
+# where the inline rules will be uploaded to. You can mix the two methods of
+# specifying the rules.
+
+beats_metricbeat_modules: []
+# The list of metricbeat modules to enable.
+# }}}

@@ -1,0 +1,148 @@
+---
+
+# Packages {{{
+- name: "Include OS specific packages"
+  include_vars: "{{ _beats__file }}"
+  loop: "{{ query('first_found', files) }}"
+  loop_control:
+    loop_var: _beats__file
+  vars:
+    files:
+      - "{{ role_path }}/vars/packages/{{ ansible_distribution_release | d('') }}.yml"
+      - "{{ role_path }}/vars/packages/{{ ansible_os_family }}.yml"
+      - "{{ role_path }}/vars/main.yml"  # fallback
+# }}}
+# Paths {{{
+- name: "{{ beats_flavor }}: Load default paths"
+  include_vars: "{{ role_path }}/vars/paths/{{ ansible_os_family }}.yml"
+  # Using the absolute path because I source this file from the molecule tests
+  # and a relative path would fail.
+
+- name: "{{ beats_flavor }}: Set beats_certificates_dir"
+  set_fact:
+    beats_certificates_dir: "{{ _beats_certificates_dir }}"
+  when: beats_certificates_dir is none
+
+- name: "{{ beats_flavor }}: Set beats_path_home"
+  set_fact:
+    beats_path_home: "{{ _beats_path_home }}"
+  when: beats_path_home is none
+
+- name: "{{ beats_flavor }}: Set beats_path_config"
+  set_fact:
+    beats_path_config: "{{ _beats_path_config }}"
+  when: beats_path_config is none
+
+- name: "{{ beats_flavor }}: Set beats_path_data"
+  set_fact:
+    beats_path_data: "{{ _beats_path_data }}"
+  when: beats_path_data is none
+
+- name: "{{ beats_flavor }}: Set beats_path_logs"
+  set_fact:
+    beats_path_logs: "{{ _beats_path_logs }}"
+  when: beats_path_logs is none
+
+# Make sure that forward slashes in paths are converted to backslashes. This is
+# needed when installing on Windows and using the paths in `win_command` and
+# `win_shell` modules.
+- name: Create backslashed path variables for Windows
+  set_fact:
+    "{{ _beats__path }}_backslashes": "{{ lookup('vars', _beats__path) | replace('/', '\\\\') }}"
+  loop:
+    - beats_path_config
+    - beats_path_home
+    - beats_path_data
+    - beats_path_logs
+  loop_control:
+    loop_var: _beats__path
+
+# }}}
+# Configs {{{
+- name: "Load {{ _beats__vars_file }} default config"
+  include_vars: "{{ role_path }}/vars/{{ _beats__vars_file }}.yml"
+  # Using the absolute path because I source this file from the molecule tests
+  # and a relative path would fail.
+  loop:
+    - "configs/general"
+    - "configs/{{ beats_flavor }}"
+  loop_control:
+    loop_var: _beats__vars_file
+
+- name: Set beats_config
+  set_fact:
+    beats_config: "{{ _beats_flavor_specific_default_config | combine({'output': {'console': {'pretty': true}}}) }}"
+  when: beats_flavor != 'auditbeat'
+
+- name: "{{ beats_flavor }}: Merge user conf with defaults"
+  set_fact:
+    beats_combined_config: >-
+      {{
+        _beats_general_default_config
+        | combine(beats_config, recursive=true)
+      }}
+# }}}
+# Commands {{{
+- name: "{{ beats_flavor }}: Set beats_linux_exec"
+  set_fact:
+    beats_linux_exec: "{{ beats_flavor
+      }} --path.data {{ beats_path_data
+      }} --path.config {{ beats_path_config
+      }} --path.home {{ beats_path_home
+      }} --path.logs {{ beats_path_logs }}"
+
+- name: "{{ beats_flavor }}: Set beats_linux_exec with wine"
+  set_fact:
+    beats_linux_exec: "wine {{ beats_path_home }}/{{ beats_flavor
+      }}.exe --path.data {{ beats_path_data
+      }} --path.config {{ beats_path_config
+      }} --path.home {{ beats_path_home
+      }} --path.logs {{ beats_path_logs }}"
+  when:
+    - ansible_os_family != 'Windows'
+    - beats_flavor == 'winlogbeat'
+
+- name: "{{ beats_flavor }}: Set beats_win_exec"
+  set_fact:
+    beats_win_exec: "{{ beats_flavor
+      }} --path.data {{ beats_path_data_backslashes
+      }} --path.config {{ beats_path_home_backslashes
+      }} --path.home {{ beats_path_home_backslashes
+      }} --path.logs {{ beats_path_logs_backslashes }}"
+# }}}
+# Others {{{
+- name: "{{ beats_flavor }}: Check if beats already installed on Linux"
+  stat:
+    path: "{{ beats_path_config }}/{{ beats_flavor }}.yml"
+  register: _beats_already_installed_linux
+  when: ansible_os_family != 'Windows'
+
+- name: "{{ beats_flavor }}: Check if beats already installed on Windows"
+  win_stat:
+    path: "{{ beats_path_config }}/{{ beats_flavor }}.yml"
+  register: _beats_already_installed_windows
+  when: ansible_os_family == 'Windows'
+
+- name: "{{ beats_flavor }}: Register variable"
+  set_fact:
+    beats_already_installed: "{{ _beats_already_installed_linux.stat.exists
+                                 if _beats_already_installed_linux.stat | d(false)
+                                 else _beats_already_installed_windows.stat.exists }}"
+
+- name: "{{ beats_flavor }}: Initialize variable"
+  set_fact:
+    beats_full_version: '0.0.0'
+
+- name: "{{ beats_flavor }}: Build user defined version string"
+  set_fact:
+    beats_user_version: >-
+      {{
+        beats_major_version | string
+      }}{{
+        '.' + beats_minor_version | string if beats_minor_version != '*'
+                                           else ''
+      }}{{
+        '.' + beats_patch_version | string if beats_minor_version != '*'
+                                           and beats_patch_version != '*'
+                                           else ''
+      }}

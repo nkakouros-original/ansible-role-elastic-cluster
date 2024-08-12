@@ -1,0 +1,37 @@
+---
+
+- name: Configure Elasticsearch
+  block:
+  - name: Create Elasticsearch directories
+    file:
+      path: "{{ item }}"
+      state: directory
+      owner: "{{ elastic_user }}"
+      group: "{{ elastic_group }}"
+      mode: '0777'
+      recurse: true
+    changed_when: false
+    with_items:
+      - "{{ es_config_dir }}"
+      - "{{ es_data_dir }}"
+
+  - name: Create Elasticsearch configuration files
+    template:
+      dest: "{{ es_config_dir }}/{{ item | basename }}"
+      owner: "{{ elastic_user }}"
+      group: "{{ elastic_group }}"
+      mode: '0644'
+      src: "{{ item }}"
+    with_items:
+      - elasticsearch.yml
+      - log4j2.properties
+      - jvm.options
+    changed_when: false
+
+  - name: Set vm.max_map_count to 262144 in sysctl
+    sysctl:
+      name: "{{ item.key }}"
+      value: "{{ item.value }}"
+    with_items:
+      - { key: "vm.max_map_count", value: "262144"}
+  when: elastic_full_version is version(elastic_user_version, '<')

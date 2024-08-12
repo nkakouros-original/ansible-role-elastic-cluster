@@ -1,0 +1,68 @@
+---
+
+- name: Register snapshot repositories
+  uri:
+    url: "{{ elastic_node_address }}/_snapshot/{{ _elasticsearch__repo.name }}"
+    method: PUT
+    body:
+      type: "{{ _elasticsearch__repo.type }}"
+      settings: "{{ _elasticsearch__repo.settings }}"
+    body_format: json
+    headers:
+      Content-Type: application/json
+    force_basic_auth: true
+    url_username: "{{ _elastic_elastic_user['name'] }}"
+    url_password: "{{ _elastic_elastic_user['pass'] }}"
+    validate_certs: false
+    return_content: false
+  loop: "{{ elastic_snapshot_repositories }}"
+  loop_control:
+    loop_var: _elasticsearch__repo
+
+- name: Create snapshot lifecycle policies
+  uri:
+    url: "{{ elastic_node_address }}/_slm/policy/{{ _elasticsearch__policy.id }}"
+    method: PUT
+    body:
+      name: "{{ _elasticsearch__policy.name }}"
+      repository: "{{ _elasticsearch__policy.repository }}"
+      config: "{{ _elasticsearch__policy.config }}"
+      schedule: "{{ _elasticsearch__policy.schedule }}"
+      retention: "{{ _elasticsearch__policy.retention | d(omit) }}"
+    body_format: json
+    headers:
+      Content-Type: application/json
+    force_basic_auth: true
+    url_username: "{{ _elastic_elastic_user['name'] }}"
+    url_password: "{{ _elastic_elastic_user['pass'] }}"
+    validate_certs: false
+    return_content: false
+  loop: "{{ elastic_snapshot_policies }}"
+  loop_control:
+    loop_var: _elasticsearch__policy
+
+- name: Start SLM policy
+  uri:
+    url: "{{ elastic_node_address }}/_slm/start"
+    method: POST
+    headers:
+      Content-Type: application/json
+    force_basic_auth: true
+    url_username: "{{ _elastic_elastic_user['name'] }}"
+    url_password: "{{ _elastic_elastic_user['pass'] }}"
+    validate_certs: false
+    return_content: false
+  when: elastic_snapshot_policy_enable | bool
+
+- name: Stop SLM policy
+  uri:
+    url: "{{ elastic_node_address }}/_slm/stop"
+    method: POST
+    headers:
+      Content-Type: application/json
+    force_basic_auth: true
+    url_username: "{{ _elastic_elastic_user['name'] }}"
+    url_password: "{{ _elastic_elastic_user['pass'] }}"
+    validate_certs: false
+    return_content: false
+  when: not elastic_snapshot_policy_enable | bool

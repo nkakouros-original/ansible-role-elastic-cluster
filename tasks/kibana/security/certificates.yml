@@ -1,0 +1,51 @@
+---
+
+- name: Check if the Elasticsearch CA cert folder exists
+  stat:
+    path: "{{ kibana_elastic_certificates_dir }}"
+  register: cert_dir
+  
+- name: Create elasticsearch CA cert folder
+  file:
+    path: "{{ kibana_elastic_certificates_dir }}"
+    state: directory
+    owner: "{{ kibana_user }}"
+    group: "{{ kibana_group }}"
+    mode: 0o750
+  when: not cert_dir.stat.exists
+
+- name: Check if Elasticsearch CA cert files exist
+  find:
+    paths: "{{ kibana_elastic_certificates_dir }}"
+    file_type: file
+  register: cert_files
+
+- name: Upload Elasticsearch CA cert files
+  copy:
+    src: "{{ item.value }}"
+    dest: "{{ kibana_elastic_certificates_dir }}/{{ item.value | basename }}"
+    owner: "{{ kibana_group if item.key == 'key' else kibana_user }}"
+    group: "{{ kibana_group }}"
+    mode: "{{ '0o400' if item.key == 'key' else '0o640' }}"
+  loop: "{{ kibana_elastic_certificates | dict2items }}"
+  when: cert_files.matched < 3
+
+- name: Configure Kibana to use the elasticsearch certificates
+  set_fact:
+    kibana_combined_config: >-
+      {{
+        _kibana_cert_settings |
+        combine(kibana_combined_config, recursive=true)
+      }}
+  vars:
+    _kibana_cert_settings:
+      elasticsearch:
+        ssl:
+          verificationMode: certificate
+          key: "{{ kibana_elastic_certificates_dir }}/{{
+                            kibana_elastic_certificates.key | basename }}"
+          certificate: "{{ kibana_elastic_certificates_dir }}/{{
+                            kibana_elastic_certificates.crt | basename }}"
+          certificateAuthorities:
+            - "{{ kibana_elastic_certificates_dir }}/{{
+                        kibana_elastic_certificates.ca | basename }}"

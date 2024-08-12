@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+# Build the Docker image
+docker build -t auditbeat:{{ beats_major_version }}.{{ beats_minor_version }}.{{ beats_patch_version }} /usr/local/bin
+
+# Remove any existing container
+docker rm -f -v {{ beats_flavor }} || :
+
+# Run the Beat container
+docker run --network host --rm --name={{ beats_flavor }} \
+  --pid host --user root --cap-add AUDIT_CONTROL   --cap-add AUDIT_READ   --cap-add SYS_ADMIN   --cap-add SYS_PTRACE   --privileged \
+  -v  {{ beats_certificates_dir }}:{{ beats_certificates_dir }} \
+  -v  {{ beats_path_config }}/scripts:{{ beats_path_config }}/scripts \
+  -v {{ beats_path_config }}/{{ beats_flavor }}.yml:{{ beats_path_config }}/{{ beats_flavor }}.yml \
+  -v {{ beats_path_config }}/fields.yml:{{ beats_path_config }}/fields.yml \
+  -v {{ beats_auditbeat_rules_dir }}:{{ beats_auditbeat_rules_dir }} \
+  -v {{ beats_path_data }}:{{ beats_path_data }} \
+  -v {{ beats_path_logs }}:{{ beats_path_logs }} \
+   auditbeat:{{ beats_major_version }}.{{ beats_minor_version }}.{{ beats_patch_version }} \
+  -e \
+  --strict.perms=false \
+  $BEAT_LOG_OPTS $BEAT_CONFIG_OPTS $BEAT_PATH_OPTS

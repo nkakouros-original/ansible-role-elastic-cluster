@@ -1,0 +1,27 @@
+---
+
+- name: "{{ beats_flavor }}: Create config dir"
+  file:
+    path: "{{ beats_path_config }}"
+    mode: 0o755
+    state: directory
+
+- name: "{{ beats_flavor }}: Check if config file exists"
+  stat:
+    path: "{{ beats_path_config }}/{{ beats_flavor }}.yml"
+  register: _beats_config_file_exists
+        
+- name: "{{ beats_flavor }}: Touch config file"
+  copy:
+    dest: "{{ beats_path_config }}/{{ beats_flavor }}.yml"
+    content: "{{ beats_config }}"
+    mode: '0644'
+  when: not _beats_config_file_exists.stat.exists or _beats_config_file_exists.stat.mode != '0644'
+
+
+- name: "{{ beats_flavor }}: Create fields.yml"
+  template:
+    dest: "{{ beats_path_config }}/fields.yml"
+    mode: 0o644
+    src: "fields.yml"
+  changed_when: false

@@ -1,0 +1,55 @@
+---
+
+- include_tasks: elastic/variables.yml
+
+- include_tasks: elastic/assertions.yml
+
+- include_tasks: elastic/core/system.yml
+
+- include_tasks: elastic/core/version.yml
+  when: _elastic_already_installed.stat.exists | bool
+
+- include_tasks: elastic/configure.yml
+
+- include_tasks: elastic/install.yml
+
+- name: Run pending handlers now
+  meta: flush_handlers
+
+- include_tasks: elastic/core/version.yml
+
+- include_tasks: elastic/core/keystore.yml
+
+- include_tasks: elastic/certificates/upload.yml
+  when: elastic_certificates != None
+
+- include_tasks: elastic/certificates/keystore.yml
+  when:
+    - elastic_certificates_password != None
+    - elastic_certificates != None
+
+- include_tasks: elastic/core/configure.yml
+
+# API calls
+- include_tasks: elastic/indexes.yml
+
+# Need to run before importing pipelines as a pipeline may use a stored script.
+- include_tasks: elastic/stored-scripts.yml
+
+- include_tasks: elastic/pipelines.yml
+
+- include_tasks: elastic/snapshots.yml
+
+- include_tasks: elastic/core/roles.yml
+
+- include_tasks: elastic/realms/native.yml
+  when:
+    - elastic_combined_config.xpack.security.enabled | d(false) | bool
+
+- include_tasks: elastic/api.yml
+
+- include_tasks: elastic/cluster-info.yml
+  when: elastic_cluster_uuid_backup is not none
+
+- include_tasks: elastic/core/reconfigure.yml
+  when: not _elasticsearch__new_cluster | bool

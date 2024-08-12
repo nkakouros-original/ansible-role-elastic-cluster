@@ -1,0 +1,21 @@
+---
+
+- name: Combine configs
+  set_fact:
+    kibana_combined_config: >-
+      {{
+        kibana_combined_config
+        | combine(kibana_config, recursive=True)
+      }}
+
+- name: Upload kibana configuration
+  copy:
+    content: >-
+      {{
+        kibana_combined_config
+        | to_nice_yaml(indent=2, explicit_start=True)
+      }}
+    dest: "{{ kibana_config_dir }}/kibana.yml"
+    owner: "{{ kibana_user }}"
+    group: "{{ kibana_group }}"
+  changed_when: false

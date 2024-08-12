@@ -1,0 +1,17 @@
+---
+
+# This is the default apache module that comes with filebeat, but with the
+# access logs disabled (just as a way to test if indeed this file overwrites the
+# default one in the online installation of filebeat).
+
+# Module: apache
+# Docs: https://www.elastic.co/guide/en/beats/filebeat/7.5/filebeat-module-apache.html
+
+- module: apache
+  # Access logs
+  access:
+    enabled: false
+
+  # Error logs
+  error:
+    enabled: true

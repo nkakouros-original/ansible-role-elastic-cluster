@@ -1,0 +1,4 @@
+---
+## {{ ansible_managed }}
+
+{{ kibana_config }}
