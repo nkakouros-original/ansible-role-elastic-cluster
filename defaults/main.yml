@@ -301,15 +301,14 @@ kibana_config:
   elasticsearch:
     hosts:
       - "http{{ (kibana_elastic_certificates != None) | ternary('s', '') }}://localhost:9200"
+    ssl:
+      alwaysPresentCertificate: true
   server:
     host: localhost
     port: 5601
     name: "{{ inventory_hostname }}"
   telemetry:
     enabled: false
-  elasticsearch:
-    ssl:
-      alwaysPresentCertificate: true
 
 kibana_elasticsearch_user: ~
 # The elasticsearch user that kibana will use to connect to elasticsearch. Leave
