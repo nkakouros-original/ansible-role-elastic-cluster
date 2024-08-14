@@ -4,11 +4,7 @@
   block:
     - name: "{{ beats_flavor }}: Extract the beats index template on Linux"
       shell: >-
-        docker exec {{ beats_flavor }} {{ beats_flavor }} \
-          --path.data /usr/share/{{ beats_flavor }}/data \
-          --path.config /usr/share/{{ beats_flavor }} \
-          --path.home {{ beats_path_home }} \
-          --path.logs /usr/share/{{ beats_flavor }}/logs export template > \
+        docker exec {{ beats_flavor }} {{ beats_linux_exec }} export template > \
           /tmp/{{ beats_flavor }}.{{ beats_full_version }}.template.json
       args:
         executable: /bin/bash

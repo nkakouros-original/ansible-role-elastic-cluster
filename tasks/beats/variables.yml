@@ -1,17 +1,5 @@
 ---
 
-# Packages {{{
-- name: "Include OS specific packages"
-  include_vars: "{{ _beats__file }}"
-  loop: "{{ query('first_found', files) }}"
-  loop_control:
-    loop_var: _beats__file
-  vars:
-    files:
-      - "{{ role_path }}/vars/packages/{{ ansible_distribution_release | d('') }}.yml"
-      - "{{ role_path }}/vars/packages/{{ ansible_os_family }}.yml"
-      - "{{ role_path }}/vars/main.yml"  # fallback
-# }}}
 # Paths {{{
 - name: "{{ beats_flavor }}: Load default paths"
   include_vars: "{{ role_path }}/vars/paths/{{ ansible_os_family }}.yml"

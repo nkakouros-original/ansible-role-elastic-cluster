@@ -6,7 +6,7 @@ docker pull docker.elastic.co/beats/{{ beats_flavor }}:{{ beats_major_version }}
 docker rm -f -v {{ beats_flavor }} || :
 
 # Run the MetricBeat container
-docker run --network=elastic --user root  --rm --name={{ beats_flavor }}  \
+docker run --network host --user root  --rm --name={{ beats_flavor }}  \
   -v "/var/log/journal:/var/log/journal" \
   -v "/etc/machine-id:/etc/machine-id" \
   -v "/run/systemd:/run/systemd" \

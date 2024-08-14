@@ -17,7 +17,7 @@
             docker rm -f -v {{ beats_flavor }} || :
 
             # Run the MetricBeat container
-            docker run --network=elastic --user root  --rm --name={{ beats_flavor }}  \
+            docker run --network host --user root  --rm --name={{ beats_flavor }}  \
               -v "/var/run/docker.sock:/var/run/docker.sock:ro" \
               -v "/sys/fs/cgroup:/hostfs/sys/fs/cgroup:ro" \
               -v "/proc:/hostfs/proc:ro" \
@@ -95,11 +95,7 @@
 - name: "{{ beats_flavor }}: Enable metricbeat modules"
   block:
     - name: "{{ beats_flavor }}: Enable metricbeat modules on Linux"
-      command: "docker exec {{ beats_flavor }} {{ beats_flavor }} \
-          --path.data /usr/share/{{ beats_flavor }}/data \
-          --path.config /usr/share/{{ beats_flavor }} \
-          --path.home {{ beats_path_home }} \
-          --path.logs /usr/share/{{ beats_flavor }}/logs modules enable {{ beats_metricbeat_modules | join(' ') }}"
+      command: "docker exec {{ beats_flavor }} {{ beats_linux_exec }} modules enable {{ beats_metricbeat_modules | join(' ') }}"
       when: ansible_os_family != 'Windows'
 
     - name: "{{ beats_flavor }}: Enable metricbeat modules on Windows"

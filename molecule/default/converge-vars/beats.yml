@@ -55,7 +55,7 @@ beats_config:
 beats_installation_name: molecule
 
 # Index management
-beats_index_template_download_dir: /tmp/
+beats_index_template_download_dir: ~/elk/beats/
 beats_extract_index_template: true
 beats_setup_index_management: "{{ beats_check_output }}"
 beats_setup_pipelines: "{{ beats_check_output }}"

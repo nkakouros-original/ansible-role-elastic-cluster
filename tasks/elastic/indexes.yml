@@ -2,7 +2,7 @@
 
 - name: Import index templates
   uri:
-    url: "{{ elastic_node_address }}/_template/{{ _elasticsearch__template.name }}"
+    url: "{{ elastic_node_address }}/_index_template/{{ _elasticsearch__template.name }}"
     method: PUT
     body: "{{ lookup('file', _elasticsearch__template.file) }}"
     body_format: json
@@ -22,7 +22,7 @@
   block:
     - name: Read existing template
       uri:
-        url: "{{ elastic_node_address }}/_template/{{ _elasticsearch__template.name }}"
+        url: "{{ elastic_node_address }}/_index_template/{{ _elasticsearch__template.name }}"
         method: GET
         headers:
           Content-Type: application/json
@@ -37,9 +37,9 @@
       loop_control:
         loop_var: _elasticsearch__template
 
-    - name: Import overriden index template
+    - name: Import overridden index template
       uri:
-        url: "{{ elastic_node_address }}/_template/{{ _elasticsearch__template.name }}"
+        url: "{{ elastic_node_address }}/_index_template/{{ _elasticsearch__template.name }}"
         method: PUT
         body: "{{ _existing_templates.results[i].json[_elasticsearch__template.name]
                   | combine(_elasticsearch__template.overrides, recursive=true) }}"

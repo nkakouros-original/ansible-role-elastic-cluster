@@ -6,7 +6,7 @@ docker pull docker.elastic.co/beats/{{ beats_flavor }}:{{ beats_major_version }}
 docker rm -f -v {{ beats_flavor }} || :
 
 # Run the Beat container
-docker run --network=elastic --user root --rm --name={{ beats_flavor }}  \
+docker run --network host --user root --rm --name={{ beats_flavor }}  \
   -v  "/var/lib/docker/containers:/var/lib/docker/containers:ro" \
   -v  "/var/run/docker.sock:/var/run/docker.sock:ro" \
   -v  {{ beats_certificates_dir }}:{{ beats_certificates_dir }} \

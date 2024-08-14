@@ -63,7 +63,7 @@
           docker rm -f -v {{ beats_flavor }} || :
 
           # Run the Beat container
-          docker run --network=elastic --user root --rm --name={{ beats_flavor }}  \
+          docker run --network host --user root --rm --name={{ beats_flavor }}  \
             -v  "/var/lib/docker/containers:/var/lib/docker/containers:ro" \
             -v  "/var/run/docker.sock:/var/run/docker.sock:ro" \
             -v  {{ beats_certificates_dir }}:{{ beats_certificates_dir }} \
@@ -122,11 +122,7 @@
         loop_var: _beats__module
 
     - name: "{{ beats_flavor }}: Enable filebeat modules on Linux"
-      command: "docker exec {{ beats_flavor }} {{ beats_flavor }} \
-          --path.data /usr/share/{{ beats_flavor }}/data \
-          --path.config /usr/share/{{ beats_flavor }} \
-          --path.home {{ beats_path_home }} \
-          --path.logs /usr/share/{{ beats_flavor }}/logs modules enable {{ modules_to_enable }}"
+      command: "docker exec {{ beats_flavor }} {{ beats_linux_exec }} modules enable {{ modules_to_enable }}"
       when: modules_to_enable | length > 0
       vars:
         modules_to_enable: >-
@@ -182,11 +178,7 @@
         loop_var: _beats__module
 
     - name: "{{ beats_flavor }}: Disable filebeat modules on Linux"
-      command: "docker exec {{ beats_flavor }} {{ beats_flavor }} \
-          --path.data /usr/share/{{ beats_flavor }}/data \
-          --path.config /usr/share/{{ beats_flavor }} \
-          --path.home {{ beats_path_home }} \
-          --path.logs /usr/share/{{ beats_flavor }}/logs modules disable {{ modules_to_disable }}"
+      command: "docker exec {{ beats_flavor }} {{ beats_linux_exec }} modules disable {{ modules_to_disable }}"
       when: modules_to_disable | length > 0
       vars:
         modules_to_disable: >-
