@@ -46,11 +46,11 @@ elastic_systemd_override: ~
 elastic_config:
   http:
     host:
-      - 0.0.0.0
+      - localhost
     port: 9200
   transport:
     host:
-      - 0.0.0.0
+      - localhost
     port: 9300
   cluster:
     name: elasticsearch
@@ -61,7 +61,7 @@ elastic_config:
     seed_providers:
       - settings
     seed_hosts:
-      - 0.0.0.0
+      - 127.0.0.1
     type: single-node  # `zen`: multi-node cluster, `single-node`: single node cluster
   path:
     data: /usr/share/elasticsearch/data
@@ -302,7 +302,7 @@ kibana_config:
     hosts:
       - "http{{ (kibana_elastic_certificates != None) | ternary('s', '') }}://localhost:9200"
   server:
-    host: 0.0.0.0
+    host: localhost
     port: 5601
     name: "{{ inventory_hostname }}"
   telemetry:
