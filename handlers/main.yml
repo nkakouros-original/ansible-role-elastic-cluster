@@ -89,15 +89,18 @@
       listen: beats-restart-service
       
     - name: "{{ beats_flavor }}: Check that beats service has started successfully"
-      docker_container_info:
-        name: "{{ beats_flavor }}"
-      register: container_info
-      until: container_info.exists and container_info.container.State.Running
+      uri:
+        url: "http://{{ beats_config.http.host }}:{{ beats_config.http.port }}" 
+        return_content: true
+        validate_certs: true
+      register: result
+      until: result is success and result.status == 200
       retries: 60
       delay: 20
+      failed_when:
+        - result is failed
+        - result.status != 200
       listen: beats-restart-service
-      failed_when: not container_info.exists
-
   when:
     - beats_enable_service | bool
     - ansible_os_family != 'Windows'
