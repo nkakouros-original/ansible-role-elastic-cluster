@@ -59,8 +59,7 @@
 
 - name: Set beats_config
   set_fact:
-    beats_config: "{{ _beats_flavor_specific_default_config | combine({'output': {'console': {'pretty': true}}}) }}"
-  when: beats_flavor != 'auditbeat'
+    beats_config: "{{ beats_config | combine(_beats_flavor_specific_default_config) }}"
 
 - name: "{{ beats_flavor }}: Merge user conf with defaults"
   set_fact:
