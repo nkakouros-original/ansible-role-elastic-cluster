@@ -2,8 +2,11 @@
 
 - include_tasks: beats/variables.yml
 
-#- include_tasks: beats/core/version.yml
- # when: beats_already_installed
+- include_tasks: beats/core/version.yml
+  when: beats_already_installed
+
+- include_tasks: beats/configure.yml
+  when: ansible_os_family != 'Windows'
 
 - include_tasks: beats/core/service.yml
   when: ansible_os_family != 'Windows'
