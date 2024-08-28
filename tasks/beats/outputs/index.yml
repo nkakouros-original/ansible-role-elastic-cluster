@@ -20,9 +20,15 @@
 - name: "{{ beats_flavor }}: index tasks for Windows"
   block:
     - name: "{{ beats_flavor }}: Extract the beats index template on Windows"
-      win_shell: "{{ beats_win_exec }} export template > C:/Users/{{ ansible_user }}/AppData/Local/Temp/{{ beats_flavor }}.{{ beats_full_version }}.template.json"
-      args:
-        executable: cmd.exe
+      block:
+        - name: "{{ beats_flavor }}: Export index template"
+          win_command: "{{ beats_win_exec }} export template"
+          register: template_output
+
+        - name: "{{ beats_flavor }}: Save index template to file"
+          copy:
+            content: "{{ template_output.stdout }}"
+            dest: "C:/Users/{{ ansible_user }}/AppData/Local/Temp/{{ beats_flavor }}.{{ beats_full_version }}.template.json"
 
     - name: "{{ beats_flavor }}: Download the index template on Windows"
       fetch:

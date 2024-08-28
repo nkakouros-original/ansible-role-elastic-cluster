@@ -35,3 +35,5 @@ galaxy_info:
     - centos
     - search
     - docker
+collections:
+  - ansible.windows

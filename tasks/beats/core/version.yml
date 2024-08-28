@@ -4,12 +4,12 @@
   block:
     - name: "{{ beats_flavor }}: Get version (Linux)"
       command: "docker exec {{ beats_flavor }} {{ beats_linux_exec }} version"
-      register: _beats_version_output
+      register: beats_full_version_linux
       changed_when: false
 
     - name: "{{ beats_flavor }}: Register beats version (Linux)"
       set_fact:
-        beats_full_version: "{{ _beats_version_output.stdout.split(' ')[2] | replace(',', '') }}"
+        beats_full_version: "{{ beats_full_version_linux.stdout.split(' ')[2] | replace(',', '') }}"
   when: ansible_os_family!= 'Windows'
 
 - name: "{{ beats_flavor }}: Get beats version on Windows"
@@ -20,10 +20,5 @@
 
     - name: "{{ beats_flavor }}: Register beats version (Windows)"
       set_fact:
-        beats_full_version: >-
-          {{
-            beats_full_version_windows.stdout
-            | regex_replace('^' + beats_flavor +'version ([0-9]+\.[0-9]+\.[0-9]).*$', '\1')
-            | trim
-          }}
+         beats_full_version: "{{ beats_full_version_windows.stdout.split(' ')[2] | replace(',', '') }}"  
   when: ansible_os_family == 'Windows'
