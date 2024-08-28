@@ -1,5 +1,7 @@
 ---
 
+- name: Load configure tasks for Linux
+  include_tasks: "configure.yml"
 
 - name: copy beats script
   template:

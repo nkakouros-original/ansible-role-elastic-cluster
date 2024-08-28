@@ -1,9 +1,29 @@
 ---
-- name: "{{ beats_flavor }}: Get version"
-  command: "docker exec {{ beats_flavor }} {{ beats_linux_exec }} version"
-  register: _beats_version_output
-  changed_when: false
 
-- name: "{{ beats_flavor }}: Register beats version"
-  set_fact:
-    beats_full_version: "{{ _beats_version_output.stdout.split(' ')[2] | replace(',', '') }}"
+- name: "{{ beats_flavor }}: Get beats version on Linux"
+  block:
+    - name: "{{ beats_flavor }}: Get version (Linux)"
+      command: "docker exec {{ beats_flavor }} {{ beats_linux_exec }} version"
+      register: _beats_version_output
+      changed_when: false
+
+    - name: "{{ beats_flavor }}: Register beats version (Linux)"
+      set_fact:
+        beats_full_version: "{{ _beats_version_output.stdout.split(' ')[2] | replace(',', '') }}"
+  when: ansible_os_family!= 'Windows'
+
+- name: "{{ beats_flavor }}: Get beats version on Windows"
+  block:
+    - name: "{{ beats_flavor }}: Get version (Windows)"
+      win_command: "{{ beats_win_exec }} version"
+      register: beats_full_version_windows
+
+    - name: "{{ beats_flavor }}: Register beats version (Windows)"
+      set_fact:
+        beats_full_version: >-
+          {{
+            beats_full_version_windows.stdout
+            | regex_replace('^' + beats_flavor +'version ([0-9]+\.[0-9]+\.[0-9]).*$', '\1')
+            | trim
+          }}
+  when: ansible_os_family == 'Windows'
