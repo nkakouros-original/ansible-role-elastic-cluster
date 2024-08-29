@@ -5,7 +5,7 @@ galaxy_info:
   description: |
     This Ansible role installs Elastic Beats, Elasticsearch, and Kibana using Docker.
     For Windows, the Beats installation is performed manually and does not use Docker.
-  license: GPL-3.0
+  license: GPLv3
   role_name: elastic_cluster
   namespace: abhi8080
   min_ansible_version: 2.15
