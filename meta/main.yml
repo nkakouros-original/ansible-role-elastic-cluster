@@ -1,39 +1,35 @@
 ---
-dependencies: []
 
 galaxy_info:
   author: Abhinav Kalra
-  description: This ansible role is used to install Elastic Beats, Elasticsearch, and Kibana with docker. 
-  company: "KTH"
-  license: "license (BSD, MIT)"
+  description: |
+    This Ansible role installs Elastic Beats, Elasticsearch, and Kibana using Docker.
+    For Windows, the Beats installation is performed manually and does not use Docker.
+  license: GPL-3.0
   role_name: elastic_cluster
   namespace: abhi8080
-  min_ansible_version: 2.8
+  min_ansible_version: 2.15
   platforms:
-    - name: Debian
-      versions:
-        - jessie
-        - stretch
     - name: Ubuntu
       versions:
-        - trusty
-        - xenial
-        - bionic
-    - name: CentOS
+        - 20.04
+        - 22.04
+    - name: Windows
       versions:
-        - 7
-        - 8
-    - name: Amazonlinux
-      versions:
-        - 2
+        - 10
   galaxy_tags:
     - system
     - server
-    - elasticsearch
     - ubuntu
-    - debian
-    - centos
-    - search
+    - windows
     - docker
+    - auditbeat
+    - packetbeat
+    - beats
+    - kibana
+    - elk
+    - elasticsearch
+    - elastic
+dependencies: []
 collections:
   - ansible.windows
