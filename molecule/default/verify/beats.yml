@@ -265,8 +265,77 @@
 
 - name: Tasks specific to heartbeat
   block:
+    - name: Check that the monitors are uploaded and have correct permissions
+      stat:
+        path: "{{ beats_heartbeat_monitors_path }}/{{ _beats__monitor.src | basename }}"
+      register: result
+      failed_when: not result.stat.exists or not result.stat.isreg or result.stat.mode != '0644' or result.stat.gr_name != 'root' or result.stat.pw_name != 'root'
+      loop: "{{ beats_heartbeat_monitors }}"
+      loop_control:
+        loop_var: _beats__monitor
+      when: _beats__monitor.src is defined
 
+    - name: Check that the inline monitors are uploaded and have correct permissions
+      stat:
+        path: "{{ beats_heartbeat_monitors_path }}/{{ _beats__monitor.dest }}"
+      register: result
+      failed_when: not result.stat.exists or not result.stat.isreg or result.stat.mode != '0644' or result.stat.gr_name != 'root' or result.stat.pw_name != 'root'
+      loop: "{{ beats_heartbeat_monitors }}"
+      loop_control:
+        loop_var: _beats__monitor
+      when: _beats__monitor.src is not defined
+
+    - name: Check that the inline monitors have correct content
+      command: cat "{{ beats_heartbeat_monitors_path }}/{{ _beats__monitor.dest }}"
+      register: result
+      failed_when: result.rc != 0 or _beats__monitor.content | to_nice_yaml(indent=2, explicit_start=true) | trim != result.stdout | trim
+      loop: "{{ beats_heartbeat_monitors }}"
+      loop_control:
+        loop_var: _beats__monitor
+      when: _beats__monitor.src is not defined
   when: beats_flavor == 'heartbeat'
+
+- name: Tasks specific to metricbeat
+  block:
+    - name: Check that the module files are uploaded and have correct permissions
+      stat:
+        path: "{{ beats_metricbeat_modules_dir }}/{{_beats__module_file.src | basename | regex_replace('^(.*)[.]j2', '\\1')}}"
+      register: result
+      failed_when: not result.stat.exists or not result.stat.isreg or result.stat.mode != '0644'
+      loop: "{{ beats_metricbeat_module_files }}"
+      loop_control:
+        loop_var: _beats__module_file
+      when: _beats__module_file.src is defined
+
+    - name: Check that the inline modules are uploaded and have correct permissions
+      stat:
+        path: "{{ beats_metricbeat_modules_dir }}/{{ _beats__module_file.dest }}"
+      register: result
+      failed_when: not result.stat.exists or not result.stat.isreg or result.stat.mode != '0644'
+      loop: "{{ beats_metricbeat_module_files }}"
+      loop_control:
+        loop_var: _beats__module_file
+      when: _beats__module_file.src is not defined
+
+    - name: Check that the inline monitors have correct content
+      command: cat "{{ beats_metricbeat_modules_dir }}/{{ _beats__module_file.dest }}"
+      register: result
+      failed_when: result.rc != 0 or _beats__module_file.content | to_nice_yaml(indent=2, explicit_start=True) | trim != result.stdout | trim
+      loop: "{{ beats_metricbeat_module_files }}"
+      loop_control:
+        loop_var: _beats__module_file
+      when: _beats__module_file.src is not defined
+
+    - name: Check metricbeat modules are enabled
+      stat:
+        path: "{{ beats_metricbeat_modules_dir }}/{{ _beats__metricbeat_module }}.yml"
+      loop: "{{ beats_metricbeat_modules }}"
+      loop_control:
+        loop_var: _beats__metricbeat_module
+      register: _result
+      failed_when: not _result.stat.exists | bool
+      when: beats_metricbeat_modules | length > 0
+  when: beats_flavor == 'metricbeat'
 
 - name: Index tasks
   block:
