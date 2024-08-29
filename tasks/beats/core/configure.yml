@@ -41,12 +41,8 @@
 - name: "{{ beats_flavor }}: configuration tasks for Windows"
   block:
     - name: "{{ beats_flavor }}: Upload configuration on Windows"
-      win_copy:
-        content: >-
-          {{
-            beats_combined_config
-            | to_nice_yaml(indent=2, explicit_start=true)
-          }}
+      win_template:
+        src: "beats/{{ beats_flavor }}.yml.j2"
         dest: "{{ beats_path_config }}/{{ beats_flavor }}.yml"
         # validate: beats test config --path.config %s
       notify: beats-restart-service
