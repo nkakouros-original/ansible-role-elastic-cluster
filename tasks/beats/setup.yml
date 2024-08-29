@@ -7,8 +7,8 @@
       when: ansible_os_family != 'Windows'
 
     - name: "{{ beats_flavor }}: Setup kibana dashboards manually on Windows"
-    win_command: "{{ beats_win_exec }} setup --dashboards"
-    when: ansible_os_family == 'Windows'
+      win_command: "{{ beats_win_exec }} setup --dashboards"
+      when: ansible_os_family == 'Windows'
   when:
     - beats_config_kibana_endpoint | bool
     - beats_setup_kibana_dashboards | bool
