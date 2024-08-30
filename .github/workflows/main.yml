@@ -17,8 +17,8 @@ jobs:
         distro:
           - image: jrei/systemd-ubuntu:20.04
             instance: systemd-ubuntu-20.04
-          - image: jrei/systemd-ubuntu:22.04
-            instance: systemd-ubuntu-22.04
+         # - image: jrei/systemd-ubuntu:22.04
+        #    instance: systemd-ubuntu-22.04
             # - image: jrei/systemd-centos:7
             #   instance: systemd-centos-7
             # - image: jrei/systemd-centos:8

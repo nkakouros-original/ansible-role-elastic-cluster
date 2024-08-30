@@ -6,11 +6,12 @@
   when: beats_already_installed
 
 - include_tasks: beats/configure.yml
+  when: ansible_os_family != 'Windows'
 
 - include_tasks: beats/core/service.yml
   when: ansible_os_family != 'Windows'
 
-- include_tasks: beats/install.yml
+- include_tasks: "beats/core/install/{{ ansible_os_family }}.yml"
 
 - name: Run pending handlers now
   meta: flush_handlers
@@ -20,7 +21,9 @@
 - include_tasks: beats/core/keystore.yml
 
 - include_tasks: beats/outputs/certificates.yml
-  when: beats_certificates != None
+  when: 
+    - beats_certificates != None
+    - ansible_os_family != 'Windows'
 
 - include_tasks: beats/outputs/kibana.yml
   when:
@@ -30,6 +33,7 @@
 - include_tasks: beats/outputs/keystore.yml
 
 - include_tasks: beats/processors.yml
+  when: ansible_os_family != 'Windows'
 
 - include_tasks: beats/core/configure.yml
 

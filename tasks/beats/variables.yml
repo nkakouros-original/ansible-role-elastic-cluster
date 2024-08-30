@@ -59,8 +59,7 @@
 
 - name: Set beats_config
   set_fact:
-    beats_config: "{{ _beats_flavor_specific_default_config | combine({'output': {'console': {'pretty': true}}}) }}"
-  when: beats_flavor != 'auditbeat'
+    beats_config: "{{ beats_config | combine(_beats_flavor_specific_default_config) }}"
 
 - name: "{{ beats_flavor }}: Merge user conf with defaults"
   set_fact:
@@ -92,11 +91,11 @@
 
 - name: "{{ beats_flavor }}: Set beats_win_exec"
   set_fact:
-    beats_win_exec: "{{ beats_flavor
-      }} --path.data {{ beats_path_data_backslashes
-      }} --path.config {{ beats_path_home_backslashes
-      }} --path.home {{ beats_path_home_backslashes
-      }} --path.logs {{ beats_path_logs_backslashes }}"
+    beats_win_exec: '"{{ beats_path_home_backslashes
+      }}\\{{ beats_flavor}}" --path.data "{{ beats_path_data_backslashes
+      }}" --path.config "{{ beats_path_home_backslashes
+      }}" --path.home "{{ beats_path_home_backslashes
+      }}" --path.logs "{{ beats_path_logs_backslashes }}"'
 # }}}
 # Others {{{
 - name: "{{ beats_flavor }}: Check if beats already installed on Linux"
