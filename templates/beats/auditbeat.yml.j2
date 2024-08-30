@@ -40,7 +40,7 @@ path:
 
 setup.template.enabled: true
 
-{%- if beats_config_kibana_endpoint and beats_flavor!= 'heartbeat' -%}
+{% if beats_config_kibana_endpoint and beats_flavor!= 'heartbeat' %}
 setup.dashboards.enabled: false
 
 setup.kibana:
