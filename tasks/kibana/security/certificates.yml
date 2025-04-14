@@ -1,10 +1,5 @@
 ---
 
-- name: Check if the Elasticsearch CA cert folder exists
-  stat:
-    path: "{{ kibana_elastic_certificates_dir }}"
-  register: cert_dir
-  
 - name: Create elasticsearch CA cert folder
   file:
     path: "{{ kibana_elastic_certificates_dir }}"
@@ -12,7 +7,7 @@
     owner: "{{ kibana_user }}"
     group: "{{ kibana_group }}"
     mode: 0o750
-  when: not cert_dir.stat.exists
+  changed_when: false
 
 - name: Check if Elasticsearch CA cert files exist
   find:

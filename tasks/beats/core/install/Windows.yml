@@ -1,0 +1,58 @@
+---
+
+- block:
+    # The chocolatey script that installs packetbeat, has a dependency of
+    # winpcap.
+    # However, chocolatey fails to install winpcap in non-interactive mode, yet it
+    # reports success and packetbeat fails to execute.
+    - name: Install Win10Pcap if installing packetbeat
+      block:
+        - name: Download winpcap
+          win_get_url:
+            url: http://www.win10pcap.org/download/Win10Pcap-v10.2-5002.msi
+            dest: C:\Windows\Temp\
+
+        - name: Install winpcap
+          win_package:
+            path: C:\Windows\Temp\Win10Pcap-v10.2-5002.msi
+            arguments: /quiet
+      when: beats_flavor == 'packetbeat'
+
+    - name: "{{ beats_flavor }}: Check if service exists"
+      win_service:
+        name: "{{ beats_flavor }}"
+        state: absent
+      register: service_exists
+
+    - name: "{{ beats_flavor }}: Stop windows service"
+      win_service:
+        name: "{{ beats_flavor }}"
+        state: stopped
+      when: service_exists.exists
+
+    - win_file:
+        path: "C:\\Program Files\\{{ beats_flavor }}"
+        state: absent
+
+    - name: "{{ beats_flavor }}: Download beat zip file"
+      win_get_url:
+        url: https://artifacts.elastic.co/downloads/beats/{{ beats_flavor }}/{{ beats_flavor }}-8.14.3-windows-x86_64.zip
+        dest: C:\{{ beats_flavor }}.zip
+
+    - name: "{{ beats_flavor }}: Extract beat zip file"
+      win_unzip:
+        src: C:\{{ beats_flavor }}.zip
+        dest: C:\Program Files
+
+    - name: "{{ beats_flavor }}: Rename beat directory"
+      win_powershell:
+        script: |
+          Rename-Item -Path "C:\Program Files\{{ beats_flavor }}-8.14.3-windows-x86_64" -NewName "{{ beats_flavor }}"
+
+    - name: "{{ beats_flavor }}: Install beat as a Windows service"
+      win_powershell:
+        script: |
+          cd 'C:\Program Files\{{ beats_flavor }}'
+          .\install-service-{{ beats_flavor }}.ps1
+  when:
+    - beats_full_version is version(beats_user_version, '<')

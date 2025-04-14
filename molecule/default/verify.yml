@@ -1,0 +1,25 @@
+---
+
+- name: Verify
+  hosts: all
+  vars:
+    role_name: abhi8080.elastic_cluster
+    role_path: "{{ playbook_dir | regex_replace('/molecule/default$', '') }}"
+  vars_files:
+    - "{{ role_path }}/defaults/main.yml"
+    - converge-vars/beats.yml
+    - converge-vars/elastic.yml
+    - converge-vars/kibana.yml
+  tasks:
+
+    - name: Include Beats verify tasks
+      include_tasks: verify/beats.yml
+      vars: 
+        beats_service_name: "{{ beats_flavor if beats_flavor != 'heartbeat' else 'heartbeat-elastic' }}{{ '@' + beats_installation_name if beats_installation_name != 'default' else '' }}"
+
+    - name: Include Elasticsearch verify tasks
+      include_tasks: verify/elastic.yml
+
+    - name: Include Kibana verify tasks
+      include_tasks: verify/kibana.yml
+

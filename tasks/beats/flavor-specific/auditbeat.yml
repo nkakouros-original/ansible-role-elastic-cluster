@@ -51,3 +51,34 @@
       when: _beats__rule.src is not defined
       notify: beats-restart-service
   when: ansible_os_family != 'Windows'
+
+- name: "{{ beats_flavor }}: Upload rule files on Windows"
+  block:
+    - name: "{{ beats_flavor }}: Create rules directory (Windows)"
+      win_file:
+        path: "{{ beats_auditbeat_rules_dir }}"
+        state: directory
+
+    - name: "{{ beats_flavor }}: Upload rule files (Windows)"
+      win_template:
+        src: "{{ _beats__rule.src }}"
+        dest: >-
+          {{ beats_auditbeat_rules_dir }}/{{
+            _beats__rule.src | basename | regex_replace('^(.*)[.]j2', '\\1')
+          }}
+      loop: "{{ beats_auditbeat_rule_files }}"
+      loop_control:
+        loop_var: _beats__rule
+      when: _beats__rule.src is defined
+      notify: beats-restart-service
+
+    - name: "{{ beats_flavor }}: Upload inline rules (Windows)"
+      win_copy:
+        content: "{{ _beats__rule.content }}"
+        dest: "{{ beats_auditbeat_rules_dir }}/{{ _beats__rule.dest }}"
+      loop: "{{ beats_auditbeat_rule_files }}"
+      loop_control:
+        loop_var: _beats__rule
+      when: _beats__rule.src is not defined
+      notify: beats-restart-service
+  when: ansible_os_family == 'Windows'

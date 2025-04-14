@@ -493,6 +493,9 @@ beats_kibana_password: ~
 # The user credentials that beats should use to log into the Kibana
 # endpoint. Leave `None` if no user login is needed.
 
+beats_kibana_ssl_enabled: false
+# Whether to enable ssl when connecting to the Kibana endpoint.
+
 beats_kibana_ssl_ca: ~
 beats_kibana_ssl_crt: ~
 beats_kibana_ssl_key: ~

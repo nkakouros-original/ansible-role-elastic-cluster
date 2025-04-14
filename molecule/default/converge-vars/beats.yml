@@ -13,21 +13,6 @@ beats_enable_service: true
 beats_check_output: false
 beats_uuid: "{{ inventory_hostname | to_uuid }}"
 beats_config:
-  auditbeat:  # ignored by other beats
-    modules:
-      - module: auditd
-        enabled: false
-      - module: file_integrity
-        enabled: false
-      - module: system
-        enabled: true
-        datasets:
-          - host
-          - login
-          - package
-          - process
-          - socket
-          - user
   output:
     console:
       pretty: true

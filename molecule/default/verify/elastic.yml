@@ -1,0 +1,93 @@
+---
+
+- name: Include Elasticsearch variables
+  include_tasks: "{{ role_path }}/tasks/elastic/variables.yml"
+
+- name: Include Elasticsearch version
+  include_tasks: "{{ role_path }}/tasks/elastic/core/version.yml"
+
+- name: Check elastic group
+  command: getent group {{ elastic_group }}
+  register: _result
+  failed_when: _result.rc != 0
+
+- name: Check elastic user
+  command: id -nG {{ elastic_user }}
+  register: _result
+  failed_when: "'{{ elastic_group }}' not in _result.stdout"
+  
+- name: Tasks specific to certificates
+  block:
+    - name: Check that the certificates directory exists and has correct permissions
+      stat:
+        path: "{{ elastic_certificates_dir }}"
+      register: _result
+      failed_when: >
+        not _result.stat.exists or not _result.stat.isdir or
+        _result.stat.mode != '0750' or
+        _result.stat.pw_name != elastic_user or
+        _result.stat.gr_name != elastic_group
+
+    - name: Check that the certificates are uploaded and have correct permissions
+      stat:
+        path: "{{ elastic_certificates_dir }}/{{ item.value | basename }}"
+      register: _result
+      failed_when: "not _result.stat.exists or not _result.stat.isreg or (_result.stat.mode != '0400' if item.key == 'key' else _result.stat.mode != '0640') or _result.stat.pw_name != (elastic_group if item.key == 'key' else elastic_user) or _result.stat.gr_name != elastic_group"
+      loop: "{{ elastic_certificates | dict2items }}"
+      loop_control:
+        loop_var: item
+
+    - name: Check that certificates password is in elastic keystore
+      shell: docker exec elasticsearch /usr/share/elasticsearch/bin/elasticsearch-keystore list
+      register: _result
+      failed_when: "_elasticsearch__passname not in _result.stdout"
+      loop:
+        - xpack.security.transport.ssl.secure_key_passphrase
+        - xpack.security.http.ssl.secure_key_passphrase
+      loop_control:
+        loop_var: _elasticsearch__passname
+      when: 
+        - elastic_certificates_password is not none
+  when: elastic_certificates is not none
+
+- name: Check that elasticsearch.yml exists and has correct permissions
+  stat:
+    path: /usr/share/elasticsearch/config/elasticsearch.yml
+  register: _result
+  failed_when: >
+    not _result.stat.exists or not _result.stat.isreg or
+    _result.stat.mode != '0660' or
+    _result.stat.pw_name != elastic_user or
+    _result.stat.gr_name != elastic_group
+
+- name: Check custom JVM configuration is correct
+  command: grep -Fx -- "{{ elastic_jvm_extra_config }}" /usr/share/elasticsearch/config/jvm.options
+  register: _result
+  failed_when: _result.rc != 0
+  when: elastic_jvm_extra_config is not none
+
+- name: Check that the systemd override file exists and has correct permissions
+  stat:
+    path: "/etc/systemd/system/elasticsearch.service.d/override.conf"
+  register: _result
+  failed_when: >
+    not _result.stat.exists or not _result.stat.isreg or
+    _result.stat.mode != '0644' or
+    _result.stat.gr_name != 'root' or
+    _result.stat.pw_name != 'root'
+  when: elastic_systemd_override is not none
+
+- name: Check that SLM policy is started
+  uri:
+    url: "{{ elastic_node_address }}/_slm/status"
+    method: GET
+    headers:
+      Content-Type: application/json
+    force_basic_auth: true
+    url_username: "{{ _elastic_elastic_user['name'] }}"
+    url_password: "{{ _elastic_elastic_user['pass'] }}"
+    validate_certs: false
+    return_content: true
+  register: _result
+  failed_when: "_result.json.operation_mode != 'RUNNING'"
+  when: elastic_snapshot_policy_enable | bool

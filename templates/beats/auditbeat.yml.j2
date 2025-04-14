@@ -1,0 +1,74 @@
+auditbeat.modules:
+
+- module: file_integrity
+  paths:
+  - C:/Windows
+  - C:/Windows/System32
+  - C:/Program Files
+  - C:/Program Files (x86)
+
+
+
+- module: system
+  datasets:
+    - host    # General host information, e.g. uptime, IPs
+    - process
+
+  # How often datasets send state updates with the
+  # current state of the system (e.g. all currently
+  # running processes, all open sockets).
+  period: "1s"
+
+http:
+  enabled: true
+  host: "0.0.0.0"
+  port: 5067
+
+monitoring:
+  enabled: false
+  cluster_uuid: "{{ 'cluster_name' | to_uuid }}"
+
+output:
+  console:
+    pretty: true
+
+path:
+  home: "{{ _beats_path_home }}" 
+  config: "{{ _beats_path_config }}"
+  data: "{{ _beats_path_data }}"
+  logs: "{{ _beats_path_logs }}"
+
+setup.template.enabled: true
+
+{% if beats_config_kibana_endpoint and beats_flavor!= 'heartbeat' %}
+setup.dashboards.enabled: false
+
+setup.kibana:
+  host: "{{ beats_kibana_host }}"
+  path: "{{ beats_kibana_path | default('', true) }}"
+  {%- if beats_kibana_username!= None -%}
+  username: "${KIBANA_USER}"
+  {%- endif -%}
+  {%- if beats_kibana_password!= None -%}
+  password: "${KIBANA_PASS}"
+  {%- endif -%}
+  ssl:
+    {%- if beats_kibana_ssl_ca!= None -%}
+    'certificate_authorities': '{{ beats_certificates_dir }}/kibana/{{ beats_kibana_ssl_ca | basename }}',
+    {%- endif -%}
+    {%- if beats_kibana_ssl_crt!= None -%}
+    'certificate': '{{ beats_certificates_dir }}/kibana/{{ beats_kibana_ssl_crt | basename }}',
+    {%- endif -%}
+    {%- if beats_kibana_ssl_key!= None -%}
+    'key': '{{ beats_certificates_dir }}/kibana/{{ beats_kibana_ssl_key | basename }}',
+    {%- endif -%}
+    {%- if beats_kibana_ssl_key_passphrase!= None -%}
+    'key_passphrase': '${ES_KIBANA_CERT_PASSPHRASE}',
+    {%- endif -%}
+    {%- if beats_kibana_ssl_enabled!= None -%}
+    'enabled': {{ beats_kibana_ssl_enabled | default(false, true) }},
+    {%- else -%}
+    'enabled': false
+    {%- endif -%}
+
+{%- endif -%}

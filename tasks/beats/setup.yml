@@ -6,6 +6,9 @@
       command: "docker exec {{ beats_flavor }} {{ beats_linux_exec }} setup --dashboards"
       when: ansible_os_family != 'Windows'
 
+    - name: "{{ beats_flavor }}: Setup kibana dashboards manually on Windows"
+      win_command: "{{ beats_win_exec }} setup --dashboards"
+      when: ansible_os_family == 'Windows'
   when:
     - beats_config_kibana_endpoint | bool
     - beats_setup_kibana_dashboards | bool
@@ -17,6 +20,9 @@
       command: "docker exec {{ beats_flavor }} {{ beats_linux_exec }} setup --index-management"
       when: ansible_os_family != 'Windows'
 
+    - name: "{{ beats_flavor }}: Load index templates, ilm policy manually on Windows"
+      win_command: "{{ beats_win_exec }} setup --index-management"
+      when: ansible_os_family == 'Windows'
   when: beats_setup_index_management | bool
 
 - name: "{{ beats_flavor }}: Setup ingest pipelines"
@@ -25,6 +31,9 @@
       command: "docker exec {{ beats_flavor }} {{ beats_linux_exec }} setup --pipelines"
       when: ansible_os_family != 'Windows'
 
+    - name: "{{ beats_flavor }}: Setup ingest pipelines on Windows"
+      command: "{{ beats_win_exec }} setup --pipelines"
+      when: ansible_os_family == 'Windows'
   when:
     - beats_setup_pipelines | bool
     - beats_flavor in _beats_with_pipelines

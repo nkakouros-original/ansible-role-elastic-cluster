@@ -1,0 +1,385 @@
+---
+
+- name: Include Beats variables
+  include_tasks: "{{ role_path }}/tasks/beats/variables.yml"
+
+- name: Include Beats version
+  include_tasks: "{{ role_path }}/tasks/beats/core/version.yml"
+
+- name: Check http monitoring is on
+  wait_for:
+     port: 5067
+  when: beats_flavor != 'winlogbeat'
+
+- name: Check that the environment variables file exists and has correct permissions
+  stat:
+    path: "{{ beats_path_config }}/{{ beats_installation_name }}.env.vars"
+  register: result
+  failed_when: not result.stat.exists or not result.stat.isreg or result.stat.mode != '0644'
+
+- name: Check that the systemd override file directory exists and has correct permissions
+  stat:
+    path: "/etc/systemd/system/{{ beats_service_name }}.service.d/"
+  register: result
+  failed_when: not result.stat.exists or not result.stat.isdir or result.stat.mode != '0755'
+  when: beats_systemd_override is not none
+
+- name: Check that the systemd override file exists and has correct permissions
+  stat:
+    path: "/etc/systemd/system/{{ beats_service_name }}.service.d/{{ role_name }}.override.conf"
+  register: result
+  failed_when: not result.stat.exists or not result.stat.isreg or result.stat.mode != '0644' or result.stat.gr_name != 'root' or result.stat.pw_name != 'root'
+  when: beats_systemd_override is not none
+
+- name: Check that the instatiate-able service file exists and has correct permissions
+  stat:
+    path: "/etc/systemd/system/{{ beats_flavor if beats_flavor != 'heartbeat' else 'heartbeat-elastic' }}@.service"
+  register: result
+  failed_when: not result.stat.exists or not result.stat.isreg or result.stat.mode != '0644'
+  when: beats_installation_name != 'default'
+
+- name: Check that the certificates directory exists and has correct permissions
+  stat:
+    path: "{{ beats_certificates_dir }}"
+  register: certs_dir_stat
+  failed_when: not certs_dir_stat.stat.exists or not certs_dir_stat.stat.isdir or certs_dir_stat.stat.mode != '0755' or certs_dir_stat.stat.pw_name != 'root' or certs_dir_stat.stat.gr_name != 'root'
+
+- name: Check that the certificates are uploaded and have correct permissions
+  stat:
+    path: "{{ beats_certificates_dir }}/{{ item.value | basename }}"
+  register: cert_stat
+  failed_when: not cert_stat.stat.exists or not cert_stat.stat.isreg or (cert_stat.stat.mode != '0400' if item.key == 'key' else cert_stat.stat.mode != '0644') or cert_stat.stat.pw_name != 'root'
+  loop: "{{ beats_certificates | dict2items }}"
+  loop_control:
+    loop_var: item
+
+- name: Tasks specific to Kibana
+  block:
+    - name: Check that the Kibana certificates folder exists and has correct permissions
+      stat:
+        path: "{{ beats_certificates_dir }}"
+      register: kibana_certs_dir_stat
+      failed_when: not kibana_certs_dir_stat.stat.exists or not kibana_certs_dir_stat.stat.isdir or kibana_certs_dir_stat.stat.mode != '0755' or kibana_certs_dir_stat.stat.pw_name != 'root' or kibana_certs_dir_stat.stat.gr_name != 'root'
+
+    - name: Check that the Kibana certificates are uploaded and have correct permissions
+      stat:
+        path: "{{ beats_certificates_dir }}/{{ item.value | basename }}"
+      register: kibana_cert_stat
+      failed_when: not kibana_cert_stat.stat.exists or not kibana_cert_stat.stat.isreg or kibana_cert_stat.stat.mode != '0644' or kibana_cert_stat.stat.pw_name != 'root' or kibana_cert_stat.stat.gr_name != 'root'
+      loop:
+        - "{{ beats_kibana_ssl_ca }}"
+        - "{{ beats_kibana_ssl_crt }}"
+        - "{{ beats_kibana_ssl_key }}"
+      when: 
+        - item != None
+  when: 
+      - beats_config_kibana_endpoint | bool
+      - beats_flavor != 'heartbeat'  
+  
+
+- name: Check that passwords and passphrases are in the keystore
+  shell: "docker exec {{ beats_flavor }} {{ beats_flavor }} \
+  --path.data /usr/share/{{ beats_flavor }}/data \
+  --path.config /usr/share/{{ beats_flavor }} \
+  --path.home {{ beats_path_home }} \
+  --path.logs /usr/share/{{ beats_flavor }}/logs keystore list"
+  register: _result
+  failed_when: "_beats__record.0 not in _result.stdout"
+  loop_control:
+    loop_var: _beats__record
+  loop: "{{ keystore_keys | zip(beats_vars) | list }}"
+  vars:
+    keystore_keys:
+      - OUTPUT_CERT_KEY_PASSPHRASE
+      - OUTPUT_USER
+      - OUTPUT_PASS
+      - KIBANA_USER
+      - KIBANA_PASS
+      - KIBANA_CERT_KEY_PASSPHRASE
+    beats_vars:
+      - beats_certificates_password
+      - beats_output_user
+      - beats_output_pass
+      - beats_kibana_username
+      - beats_kibana_password
+      - beats_kibana_ssl_key_passphrase
+  when: lookup('vars', _beats__record.1) != None
+
+- name: Check that the scripts directory exists and has correct permissions
+  stat:
+    path: "{{ beats_path_config }}/scripts/"
+  register: result
+  failed_when: not result.stat.exists or not result.stat.isdir or result.stat.mode != '0644' or result.stat.gr_name != 'root' or result.stat.pw_name != 'root'
+  when: beats_processor_scripts | length > 0
+
+- name: Check that the scripts are uploaded and have correct permissions
+  stat:
+    path: "{{ beats_path_config }}/scripts/{{ item | basename }}"
+  register: result
+  failed_when: not result.stat.exists or not result.stat.isreg or result.stat.mode != '0644' or result.stat.gr_name != 'root' or result.stat.pw_name != 'root'
+  loop: "{{ beats_processor_scripts }}"
+  loop_control:
+    loop_var: item
+
+- name: Check that the configuration file is present with correct permissions
+  stat:
+    path: "{{ beats_path_config }}/{{ beats_flavor }}.yml"
+  register: config_file_stat
+  failed_when: >
+    not config_file_stat.stat.exists or
+    not config_file_stat.stat.isreg or
+    config_file_stat.stat.mode != '0644' or
+    config_file_stat.stat.gr_name != 'root' or
+    config_file_stat.stat.pw_name != 'root'
+
+- name: Check the content of the configuration file
+  command: cat "{{ beats_path_config }}/{{ beats_flavor }}.yml"
+  register: config_file_content
+  failed_when: >
+    config_file_content.rc != 0 or
+    beats_flavor not in config_file_content.stdout
+
+- name: Check that the uuid file exists
+  stat:
+    path: "{{ beats_path_data }}/meta.json"
+  register: result
+  failed_when: not result.stat.exists or not result.stat.isreg
+  when: beats_uuid is not none
+
+- name: Check that the uuid file has correct content
+  command: cat "{{ beats_path_data }}/meta.json"
+  register: result
+  failed_when: result.rc != 0 or beats_uuid not in result.stdout
+  when: beats_uuid is not none
+
+- name: Check that fields.yml exists and has correct permissions
+  stat:
+    path: "{{ beats_path_config }}/fields.yml"
+  register: fields_yml_stat
+  failed_when: >
+    not fields_yml_stat.stat.exists or 
+    not fields_yml_stat.stat.isreg or
+    fields_yml_stat.stat.mode != '0644' 
+
+- name: Check that the field settings have been overridden correctly
+  shell: |
+    awk '/{{ item.marker_begin }}/,/{{ item.marker_end }}/' {{ beats_path_config }}/fields.yml
+  register: field_settings_override
+  failed_when: 
+    - field_settings_override.rc != 0
+    - item.block not in field_settings_override.stdout
+  loop: "{{ beats_setup_template_field_overrides }}"
+  loop_control:
+    loop_var: item
+
+- name: Tasks specific to auditbeat
+  block:
+    - name: Check that journald-audit is disabled
+      systemd:
+        name: systemd-journald-audit.socket
+      register: service_status
+      failed_when: service_status.status.LoadState != 'masked' or service_status.status.ActiveState != 'inactive'
+      when: beats_auditbeat_mask_journald_audit | bool
+
+    - name: Check that the rules directory exists and has correct permissions
+      stat:
+        path: "{{ beats_auditbeat_rules_dir }}"
+      register: result
+      failed_when: not result.stat.exists or not result.stat.isdir or result.stat.mode != '0755'
+    
+
+    - name: Check that the rule files are uploaded and have correct permissions
+      stat:
+        path: "{{ beats_auditbeat_rules_dir }}/{{ item.src | basename | regex_replace('^(.*)[.]j2', '\\1') }}"
+      register: result
+      failed_when: not result.stat.exists or not result.stat.isreg or result.stat.mode != '0600' or result.stat.gr_name != 'root' or result.stat.pw_name != 'root'
+      loop: "{{ beats_auditbeat_rule_files }}"
+      loop_control:
+        loop_var: item
+      when: item.src is defined
+
+    - name: Check that the inline rules are uploaded and have correct permissions
+      stat:
+        path: "{{ beats_auditbeat_rules_dir }}/{{ item.dest }}"
+      register: result
+      failed_when: not result.stat.exists or not result.stat.isreg or result.stat.mode != '0600' or result.stat.gr_name != 'root' or result.stat.pw_name != 'root'
+      loop: "{{ beats_auditbeat_rule_files }}"
+      loop_control:
+        loop_var: item
+      when: item.src is not defined
+
+    - name: Check that the inline rules have correct content
+      command: cat "{{ beats_auditbeat_rules_dir }}/{{ item.dest }}"
+      register: result
+      failed_when: result.rc != 0 or item.content not in result.stdout
+      loop: "{{ beats_auditbeat_rule_files }}"
+      loop_control:
+        loop_var: item
+      when: item.src is not defined
+  when: beats_flavor == 'auditbeat'
+
+- name: Tasks specific to filebeat
+  block:
+    - name: Check that the inputs directory exists and has correct permissions
+      stat:
+        path: "{{ beats_filebeat_inputs_dir }}"
+      register: result
+      failed_when: not result.stat.exists or not result.stat.isdir or result.stat.mode != '0755'
+    
+    - name: Check that the inputs are uploaded and have correct permissions
+      stat:
+        path: "{{ beats_filebeat_inputs_dir }}/{{_beats__input_file | basename | regex_replace('^(.*)[.]j2', '\\1')}}"
+      register: result
+      failed_when: not result.stat.exists or not result.stat.isreg or result.stat.mode != '0600'
+      loop: "{{ beats_filebeat_input_files }}"
+      loop_control:
+        loop_var: _beats__input_file
+
+    - name: Check that the modules are uploaded and have correct permissions
+      stat:
+        path: "{{ beats_filebeat_modules_dir }}/{{ _beats__module | basename | regex_replace('^(.*)[.]j2', '\\1')}}"
+      register: result
+      failed_when: not result.stat.exists or not result.stat.isreg or result.stat.mode != '0644'
+      loop: "{{ beats_filebeat_module_files }}"
+      loop_control:
+        loop_var: _beats__module
+
+    - name: Check filebeat modules are enabled
+      stat:
+        path: "{{ beats_filebeat_modules_dir }}/{{ _beats__filebeat_module }}.yml"
+      loop: "{{ beats_filebeat_modules }}"
+      loop_control:
+        loop_var: _beats__filebeat_module
+      register: _result
+      failed_when: not _result.stat.exists | bool
+
+    - name: Check filebeat modules are disabled
+      stat:
+        path: "{{ beats_filebeat_modules_dir }}/{{ _beats__filebeat_module }}.yml.disabled"
+      loop: "{{ beats_filebeat_modules_disable }}"
+      loop_control:
+        loop_var: _beats__filebeat_module
+      register: _result
+      failed_when: not _result.stat.exists | bool
+  when: beats_flavor == 'filebeat'
+
+- name: Tasks specific to heartbeat
+  block:
+    - name: Check that the monitors are uploaded and have correct permissions
+      stat:
+        path: "{{ beats_heartbeat_monitors_path }}/{{ _beats__monitor.src | basename }}"
+      register: result
+      failed_when: not result.stat.exists or not result.stat.isreg or result.stat.mode != '0644' or result.stat.gr_name != 'root' or result.stat.pw_name != 'root'
+      loop: "{{ beats_heartbeat_monitors }}"
+      loop_control:
+        loop_var: _beats__monitor
+      when: _beats__monitor.src is defined
+
+    - name: Check that the inline monitors are uploaded and have correct permissions
+      stat:
+        path: "{{ beats_heartbeat_monitors_path }}/{{ _beats__monitor.dest }}"
+      register: result
+      failed_when: not result.stat.exists or not result.stat.isreg or result.stat.mode != '0644' or result.stat.gr_name != 'root' or result.stat.pw_name != 'root'
+      loop: "{{ beats_heartbeat_monitors }}"
+      loop_control:
+        loop_var: _beats__monitor
+      when: _beats__monitor.src is not defined
+
+    - name: Check that the inline monitors have correct content
+      command: cat "{{ beats_heartbeat_monitors_path }}/{{ _beats__monitor.dest }}"
+      register: result
+      failed_when: result.rc != 0 or _beats__monitor.content | to_nice_yaml(indent=2, explicit_start=true) | trim != result.stdout | trim
+      loop: "{{ beats_heartbeat_monitors }}"
+      loop_control:
+        loop_var: _beats__monitor
+      when: _beats__monitor.src is not defined
+  when: beats_flavor == 'heartbeat'
+
+- name: Tasks specific to metricbeat
+  block:
+    - name: Check that the module files are uploaded and have correct permissions
+      stat:
+        path: "{{ beats_metricbeat_modules_dir }}/{{_beats__module_file.src | basename | regex_replace('^(.*)[.]j2', '\\1')}}"
+      register: result
+      failed_when: not result.stat.exists or not result.stat.isreg or result.stat.mode != '0644'
+      loop: "{{ beats_metricbeat_module_files }}"
+      loop_control:
+        loop_var: _beats__module_file
+      when: _beats__module_file.src is defined
+
+    - name: Check that the inline modules are uploaded and have correct permissions
+      stat:
+        path: "{{ beats_metricbeat_modules_dir }}/{{ _beats__module_file.dest }}"
+      register: result
+      failed_when: not result.stat.exists or not result.stat.isreg or result.stat.mode != '0644'
+      loop: "{{ beats_metricbeat_module_files }}"
+      loop_control:
+        loop_var: _beats__module_file
+      when: _beats__module_file.src is not defined
+
+    - name: Check that the inline monitors have correct content
+      command: cat "{{ beats_metricbeat_modules_dir }}/{{ _beats__module_file.dest }}"
+      register: result
+      failed_when: result.rc != 0 or _beats__module_file.content | to_nice_yaml(indent=2, explicit_start=True) | trim != result.stdout | trim
+      loop: "{{ beats_metricbeat_module_files }}"
+      loop_control:
+        loop_var: _beats__module_file
+      when: _beats__module_file.src is not defined
+
+    - name: Check metricbeat modules are enabled
+      stat:
+        path: "{{ beats_metricbeat_modules_dir }}/{{ _beats__metricbeat_module }}.yml"
+      loop: "{{ beats_metricbeat_modules }}"
+      loop_control:
+        loop_var: _beats__metricbeat_module
+      register: _result
+      failed_when: not _result.stat.exists | bool
+      when: beats_metricbeat_modules | length > 0
+  when: beats_flavor == 'metricbeat'
+
+- name: Index tasks
+  block:
+    - name: Check that the index template file exists on the remote host
+      stat:
+        path: "/tmp/{{ beats_flavor }}.{{ beats_full_version }}.template.json"
+      register: result
+      failed_when: not result.stat.exists or not result.stat.isreg
+
+    - name: Check that the index template file has been downloaded
+      stat:
+        path: "{{ beats_index_template_download_dir }}/{{ beats_flavor }}.{{ beats_full_version }}.template.json"
+      register: result
+      failed_when: not result.stat.exists or not result.stat.isreg
+      delegate_to: localhost
+  when: beats_extract_index_template | bool
+
+- name: Check that Kibana dashboards are set up
+  command: >
+    docker exec {{ beats_flavor }} sh -c "curl -s -X GET 'localhost:5601/api/saved_objects/_find?type=dashboard&per_page=1'"
+  register: check_dashboards
+  failed_when: >
+    check_dashboards.rc != 0 or
+    (check_dashboards.stdout | from_yaml | dict2items | selectattr('key', 'equalto', 'total') | map(attribute='value') | first | int) == 0
+  when:
+    - beats_config_kibana_endpoint | bool
+    - beats_setup_kibana_dashboards | bool
+    - beats_flavor != 'heartbeat'
+
+# This task does not perform the check accurately; it does not fail even when ingest pipelines are not set up. 
+- name: "{{ beats_flavor }}: Check that ingest pipelines are set up"
+  command: >
+    docker exec {{ beats_flavor }} curl -s -X GET "localhost:5601/api/ingest/pipeline/_all"
+  register: pipelines_response
+  failed_when: >
+    pipelines_response.rc != 0 or
+    (pipelines_response.stdout | from_json | length) == 0
+  when:
+      - beats_setup_pipelines | bool
+      - beats_flavor in _beats_with_pipelines
+  vars:
+    _beats_with_pipelines:
+      - auditbeat
+      - filebeat
+      - metricbeat
+      - packetbeat
+      - journalbeat

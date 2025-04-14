@@ -1,0 +1,74 @@
+---
+
+- name: Include Kibana variables
+  include_tasks: "{{ role_path }}/tasks/kibana/variables.yml"
+
+- name: Check kibana group
+  command: getent group {{ kibana_group }}
+  register: _result
+  failed_when: _result.rc != 0
+
+- name: Check kibana user
+  command: id -nG {{ kibana_user }}
+  register: _result
+  failed_when: "'{{ kibana_group }}' not in _result.stdout"
+  when: kibana_user != 'root'
+
+- name: Tasks specific to certificates
+  block:
+    - name: Check that the elasticsearch CA cert folder exists and has correct permissions
+      stat:
+        path: "{{ kibana_elastic_certificates_dir }}"
+      register: _result
+      failed_when: >
+        not _result.stat.exists or not _result.stat.isdir or
+        _result.stat.mode != '0750' or
+        _result.stat.pw_name != kibana_user or
+        _result.stat.gr_name != kibana_group
+
+    - name: Check that the Elasticsearch CA cert files are uploaded and have correct permissions
+      stat:
+        path: "{{ kibana_elastic_certificates_dir }}/{{ item.value | basename }}"
+      register: _result
+      failed_when: "not _result.stat.exists or not _result.stat.isreg or (_result.stat.mode != '0400' if item.key == 'key' else _result.stat.mode != '0640') or _result.stat.pw_name != (kibana_group if item.key == 'key' else kibana_user) or _result.stat.gr_name != kibana_group"
+      loop: "{{ kibana_elastic_certificates | dict2items }}"
+      loop_control:
+        loop_var: item
+  when: kibana_elastic_certificates is not none
+
+- name: Check that certificates password is in kibana keystore
+  shell: docker exec kibana /usr/share/kibana/bin/kibana-keystore list
+  register: _result
+  failed_when: "item not in _result.stdout"
+  loop:
+      - elasticsearch.ssl.keyPassphrase
+
+- name: Check that built-in kibana user name is in kibana keystore
+  shell: docker exec kibana /usr/share/kibana/bin/kibana-keystore list
+  register: _result
+  failed_when: "item not in _result.stdout"
+  loop:
+    - elasticsearch.username
+  when: 
+    - kibana_elasticsearch_user['name'] is defined
+    - _kibana_keystore_settings.stdout is not search(item)
+
+- name: Check that built-in kibana user password is in kibana keystore
+  shell: docker exec kibana /usr/share/kibana/bin/kibana-keystore list
+  register: _result
+  failed_when: "item not in _result.stdout"
+  loop:
+    - elasticsearch.password
+  when: 
+    - kibana_elasticsearch_user['pass'] is defined
+    - _kibana_keystore_settings.stdout is not search(item)
+
+
+- name: Check that kibana.yml exists and has correct permissions
+  stat:
+    path: /usr/share/kibana/config/kibana.yml
+  register: _result
+  failed_when: >
+    not _result.stat.exists or not _result.stat.isreg or
+    _result.stat.pw_name != kibana_user or
+    _result.stat.gr_name != kibana_group

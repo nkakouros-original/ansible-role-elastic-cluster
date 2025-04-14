@@ -1,6 +1,5 @@
 ---
 
-
 - name: copy beats script
   template:
     src: "{{ item }}"

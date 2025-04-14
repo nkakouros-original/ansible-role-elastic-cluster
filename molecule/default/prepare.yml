@@ -3,8 +3,10 @@
 - name: Prepare
   hosts: all
   roles:
-    - geerlingguy.docker
-    - nkakouros.easyrsa
+    - role: geerlingguy.docker
+      when: ansible_os_family!= 'Windows'
+    - role: nkakouros.easyrsa
+      when: ansible_os_family!= 'Windows'
   pre_tasks:
     - name: Install packages required by ansible modules
       package:
@@ -15,11 +17,13 @@
       vars:
         packages:
           - sudo
+      when: ansible_os_family != 'Windows'
 
     - name: Ensure /etc/easyrsa/pki directory exists
       file:
         path: /etc/easyrsa/pki
         state: directory
+      when: ansible_os_family != 'Windows'
   vars:
     easyrsa_servers:
       - name: elastic

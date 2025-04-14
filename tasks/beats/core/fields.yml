@@ -12,4 +12,14 @@
   loop_control:
     loop_var: _beats__field_setting
   when: ansible_os_family != 'Windows'
-  # TODO there is no win_blockinfile module, find a workaround for windows
+
+- name: "{{ beats_flavor }}: Override field settings"
+  win_lineinfile:
+    path: "{{ beats_path_config + '/fields.yml' }}"
+    line: "{{ _beats__field_setting.block }}"
+    insertbefore: "{{ _beats__field_setting.marker_begin }}"
+    state: present
+  loop: "{{ beats_setup_template_field_overrides }}"
+  loop_control:
+    loop_var: _beats__field_setting
+  when: ansible_os_family == 'Windows'
